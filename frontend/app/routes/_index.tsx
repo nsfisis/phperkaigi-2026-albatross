@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { ensureUserNotLoggedIn } from "../.server/auth";
-import BorderedContainerWithCaption from "../components/BorderedContainerWithCaption";
+import BorderedContainer from "../components/BorderedContainer";
 import NavigateLink from "../components/NavigateLink";
 
 export const meta: MetaFunction = () => [
@@ -26,7 +26,7 @@ export default function Index() {
 				</div>
 			</div>
 			<div className="mx-2">
-				<BorderedContainerWithCaption caption="オンライン予選開催中 (3/21 決勝当日まで)">
+				<BorderedContainer>
 					<p className="text-gray-900 max-w-prose">
 						PHPer コードバトルは指示された動作をする PHP
 						コードをより短く書けた方が勝ち、という 1 対 1
@@ -35,7 +35,7 @@ export default function Index() {
 						PHPer コードバトルを実施します。ここでは短いコードが正義です！
 						可読性も保守性も放り投げた、イベントならではのコードをお楽しみください！
 					</p>
-				</BorderedContainerWithCaption>
+				</BorderedContainer>
 			</div>
 			<div>
 				<NavigateLink to="/login">ログイン</NavigateLink>
