@@ -14,33 +14,31 @@ import (
 
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/account"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/auth"
+	"github.com/nsfisis/phperkaigi-2025-albatross/backend/config"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
-)
-
-const (
-	basePath = "/phperkaigi/2025/code-battle"
 )
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
 type Handler struct {
-	q *db.Queries
+	q    *db.Queries
+	conf *config.Config
 }
 
-func NewHandler(q *db.Queries) *Handler {
-	return &Handler{q: q}
+func NewHandler(q *db.Queries, conf *config.Config) *Handler {
+	return &Handler{q: q, conf: conf}
 }
 
-func newAdminMiddleware() echo.MiddlewareFunc {
+func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			jwt, err := c.Cookie("albatross_token")
 			if err != nil {
-				return c.Redirect(http.StatusSeeOther, basePath+"/login")
+				return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"login")
 			}
 			claims, err := auth.ParseJWT(jwt.Value)
 			if err != nil {
-				return c.Redirect(http.StatusSeeOther, basePath+"/login")
+				return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"login")
 			}
 			if !claims.IsAdmin {
 				return echo.NewHTTPError(http.StatusForbidden)
@@ -52,7 +50,7 @@ func newAdminMiddleware() echo.MiddlewareFunc {
 
 func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.Use(newAssetsMiddleware())
-	g.Use(newAdminMiddleware())
+	g.Use(h.newAdminMiddleware())
 
 	g.GET("/dashboard", h.getDashboard)
 	g.GET("/users", h.getUsers)
@@ -69,7 +67,7 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 
 func (h *Handler) getDashboard(c echo.Context) error {
 	return c.Render(http.StatusOK, "dashboard", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "Dashboard",
 	})
 }
@@ -91,7 +89,7 @@ func (h *Handler) getUsers(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "users", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "Users",
 		"Users":    users,
 	})
@@ -111,7 +109,7 @@ func (h *Handler) getUserEdit(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "user_edit", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "User Edit",
 		"User": echo.Map{
 			"UserID":      row.UserID,
@@ -155,7 +153,7 @@ func (h *Handler) postUserEdit(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.Redirect(http.StatusSeeOther, basePath+"/admin/users")
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/users")
 }
 
 func (h *Handler) postUserFetchIcon(c echo.Context) error {
@@ -177,7 +175,7 @@ func (h *Handler) postUserFetchIcon(c echo.Context) error {
 			// The failure is intentionally ignored. Retry manually if needed.
 		}
 	}()
-	return c.Redirect(http.StatusSeeOther, basePath+"/admin/users")
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/users")
 }
 
 func (h *Handler) getGames(c echo.Context) error {
@@ -203,7 +201,7 @@ func (h *Handler) getGames(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "games", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "Games",
 		"Games":    games,
 	})
@@ -257,7 +255,7 @@ func (h *Handler) getGameEdit(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "game_edit", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "Game Edit",
 		"Game": echo.Map{
 			"GameID":          row.GameID,
@@ -367,7 +365,7 @@ func (h *Handler) postGameEdit(c echo.Context) error {
 		}
 	}
 
-	return c.Redirect(http.StatusSeeOther, basePath+"/admin/games")
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
 }
 
 func (h *Handler) postGameStart(c echo.Context) error {
@@ -389,7 +387,7 @@ func (h *Handler) postGameStart(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.Redirect(http.StatusSeeOther, basePath+"/admin/games")
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
 }
 
 func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
@@ -424,7 +422,7 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 		}
 	}
 	return c.Render(http.StatusOK, "online_qualifying_ranking", echo.Map{
-		"BasePath": basePath,
+		"BasePath": h.conf.BasePath,
 		"Title":    "Online Qualifying Ranking",
 		"Entries":  entries,
 	})
@@ -464,5 +462,5 @@ func (h *Handler) postFix(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
-	return c.Redirect(http.StatusSeeOther, basePath+"/admin/dashboard")
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/dashboard")
 }

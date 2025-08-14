@@ -1,3 +1,5 @@
+import { BASE_PATH } from "../config";
+
 type Props = {
 	iconPath: string;
 	displayName: string;
@@ -9,8 +11,8 @@ export default function UserIcon({ iconPath, displayName, className }: Props) {
 		<img
 			src={
 				process.env.NODE_ENV === "development"
-					? `http://localhost:8003/phperkaigi/2025/code-battle${iconPath}`
-					: `/phperkaigi/2025/code-battle${iconPath}`
+					? `http://localhost:8003${BASE_PATH}${iconPath}`
+					: `${BASE_PATH}${iconPath}`
 			}
 			alt={`${displayName} のアイコン`}
 			className={`rounded-full border-4 border-white ${className}`}

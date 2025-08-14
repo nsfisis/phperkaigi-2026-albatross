@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { ensureUserNotLoggedIn } from "../.server/auth";
 import BorderedContainer from "../components/BorderedContainer";
 import NavigateLink from "../components/NavigateLink";
+import { BASE_PATH } from "../config";
 
 export const meta: MetaFunction = () => [
 	{ title: "PHPerKaigi 2025 Albatross" },
@@ -16,7 +17,7 @@ export default function Index() {
 	return (
 		<div className="min-h-screen bg-sky-600 flex flex-col items-center justify-center gap-y-6">
 			<img
-				src="/phperkaigi/2025/code-battle/logo.svg"
+				src={`${BASE_PATH}logo.svg`}
 				alt="PHPerKaigi 2025"
 				className="w-64 h-64"
 			/>

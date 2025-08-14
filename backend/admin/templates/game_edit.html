@@ -1,7 +1,7 @@
 {{ template "base.html" . }}
 
 {{ define "breadcrumb" }}
-<a href="{{ .BasePath }}/admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}/admin/games">Games</a>
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/games">Games</a>
 {{ end }}
 
 {{ define "content" }}
@@ -59,7 +59,7 @@
     <button type="submit">Save</button>
   </div>
   <div>
-    <button type="submit" formaction="{{ .BasePath }}/admin/games/{{ .Game.GameID }}/start">Start</button>
+    <button type="submit" formaction="{{ .BasePath }}admin/games/{{ .Game.GameID }}/start">Start</button>
   </div>
 </form>
 {{ end }}

@@ -4,11 +4,12 @@ import type { LinksFunction } from "react-router";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import "./tailwind.css";
 import "./shiki.css";
+import { BASE_PATH } from "./config";
 
 config.autoAddCss = false;
 
 export const links: LinksFunction = () => [
-	{ rel: "icon", href: "/phperkaigi/2025/code-battle/favicon.svg" },
+	{ rel: "icon", href: `${BASE_PATH}code-battle/favicon.svg` },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

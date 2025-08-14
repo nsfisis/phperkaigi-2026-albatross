@@ -5,6 +5,7 @@ import { createApiClient } from "../api/client";
 import BorderedContainerWithCaption from "../components/BorderedContainerWithCaption";
 import NavigateLink from "../components/NavigateLink";
 import UserIcon from "../components/UserIcon";
+import { BASE_PATH } from "../config";
 
 export const meta: MetaFunction = () => [
 	{ title: "Dashboard | PHPerKaigi 2025 Albatross" },
@@ -76,8 +77,8 @@ export default function Dashboard() {
 				<a
 					href={
 						process.env.NODE_ENV === "development"
-							? "http://localhost:8003/phperkaigi/2025/code-battle/admin/dashboard"
-							: "/phperkaigi/2025/code-battle/admin/dashboard"
+							? `http://localhost:8003${BASE_PATH}admin/dashboard`
+							: `${BASE_PATH}admin/dashboard`
 					}
 					className="text-lg text-white bg-sky-600 px-4 py-2 rounded-sm transition duration-300 hover:bg-sky-500 focus:ring-3 focus:ring-sky-400 focus:outline-hidden"
 				>

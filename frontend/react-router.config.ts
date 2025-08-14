@@ -1,5 +1,5 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-	basename: "/phperkaigi/2025/code-battle/",
+	basename: process.env.ALBATROSS_BASE_PATH || "/",
 } satisfies Config;

@@ -2,18 +2,18 @@
 
 {{ define "content" }}
 <p>
-  <a href="{{ .BasePath }}/admin/users">Users</a>
+  <a href="{{ .BasePath }}admin/users">Users</a>
 </p>
 <p>
-  <a href="{{ .BasePath }}/admin/games">Games</a>
+  <a href="{{ .BasePath }}admin/games">Games</a>
 </p>
 <p>
-  <a href="{{ .BasePath }}/admin/online-qualifying-ranking?game_1=7&game_2=8">Online Qualifying Ranking</a>
+  <a href="{{ .BasePath }}admin/online-qualifying-ranking?game_1=7&game_2=8">Online Qualifying Ranking</a>
 </p>
-<form method="post" action="{{ .BasePath }}/admin/fix">
+<form method="post" action="{{ .BasePath }}admin/fix">
   <button type="submit">fix</button>
 </form>
-<form method="post" action="{{ .BasePath }}/logout">
+<form method="post" action="{{ .BasePath }}logout">
   <button type="submit">Logout</button>
 </form>
 {{ end }}

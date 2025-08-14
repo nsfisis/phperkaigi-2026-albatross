@@ -13,6 +13,7 @@ import (
 
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/admin"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/api"
+	"github.com/nsfisis/phperkaigi-2025-albatross/backend/config"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/game"
 	"github.com/nsfisis/phperkaigi-2025-albatross/backend/taskqueue"
@@ -33,19 +34,19 @@ func connectDB(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 
 func main() {
 	var err error
-	config, err := NewConfigFromEnv()
+	conf, err := config.NewConfigFromEnv()
 	if err != nil {
 		log.Fatalf("Error loading env %v", err)
 	}
 
-	openAPISpec, err := api.GetSwaggerWithPrefix("/phperkaigi/2025/code-battle/api")
+	openAPISpec, err := api.GetSwaggerWithPrefix(conf.BasePath + "api")
 	if err != nil {
 		log.Fatalf("Error loading OpenAPI spec\n: %s", err)
 	}
 
 	ctx := context.Background()
 
-	dbDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", config.dbHost, config.dbPort, config.dbUser, config.dbPassword, config.dbName)
+	dbDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", conf.DBHost, conf.DBPort, conf.DBUser, conf.DBPassword, conf.DBName)
 	connPool, err := connectDB(ctx, dbDSN)
 	if err != nil {
 		log.Fatalf("Error connecting to db %v", err)
@@ -65,27 +66,27 @@ func main() {
 
 	gameHub := game.NewGameHub(queries, taskQueue, workerServer)
 
-	apiGroup := e.Group("/phperkaigi/2025/code-battle/api")
+	apiGroup := e.Group(conf.BasePath + "api")
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
 	apiHandler := api.NewHandler(queries, gameHub)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
-	adminHandler := admin.NewHandler(queries)
-	adminGroup := e.Group("/phperkaigi/2025/code-battle/admin")
+	adminHandler := admin.NewHandler(queries, conf)
+	adminGroup := e.Group(conf.BasePath + "admin")
 	adminHandler.RegisterHandlers(adminGroup)
 
-	if config.isLocal {
-		filesGroup := e.Group("/phperkaigi/2025/code-battle/files")
+	if conf.IsLocal {
+		filesGroup := e.Group(conf.BasePath + "files")
 		filesGroup.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 			Root:       "/",
 			Filesystem: http.Dir("/data/files"),
 			IgnoreBase: true,
 		}))
 
-		e.GET("/phperkaigi/2025/code-battle/*", func(c echo.Context) error {
+		e.GET(conf.BasePath+"*", func(c echo.Context) error {
 			return c.Redirect(http.StatusPermanentRedirect, "http://localhost:5173"+c.Request().URL.Path)
 		})
-		e.POST("/phperkaigi/2025/code-battle/*", func(c echo.Context) error {
+		e.POST(conf.BasePath+"*", func(c echo.Context) error {
 			return c.Redirect(http.StatusPermanentRedirect, "http://localhost:5173"+c.Request().URL.Path)
 		})
 

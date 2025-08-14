@@ -18,6 +18,9 @@
 
 1. Clone the repository.
 1. `cd path/to/the/repo`
+1. Copy `.env.example` to `.env` and configure:
+    * `ALBATROSS_JWT_SECRET`: Secret key for JWT tokens
+    * `ALBATROSS_COOKIE_SECRET`: Secret key for cookies
 1. `make init`
 1. `make up`
 1. Access to http://localhost:5173/phperkaigi/2025/code-battle/.

@@ -1,4 +1,5 @@
 ARG ALBATROSS_HOST
+ARG ALBATROSS_BASE_PATH
 
 FROM node:22.14 AS builder
 
@@ -9,6 +10,7 @@ COPY package.json package-lock.json .
 RUN npm install --include=dev
 
 COPY . .
+ENV ALBATROSS_BASE_PATH="$ALBATROSS_BASE_PATH"
 RUN npm run build
 
 ################################################################################

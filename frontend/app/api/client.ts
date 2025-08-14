@@ -1,12 +1,13 @@
 import createClient from "openapi-fetch";
 import { createContext } from "react";
+import { API_BASE_PATH } from "../config";
 import type { paths } from "./schema";
 
 const client = createClient<paths>({
 	baseUrl:
 		process.env.NODE_ENV === "development"
-			? "http://localhost:8003/phperkaigi/2025/code-battle/api/"
-			: "https://t.nil.ninja/phperkaigi/2025/code-battle/api/",
+			? `http://localhost:8003${API_BASE_PATH}`
+			: `https://t.nil.ninja${API_BASE_PATH}`,
 });
 
 export async function apiLogin(username: string, password: string) {

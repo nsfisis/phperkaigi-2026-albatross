@@ -4,6 +4,6 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-	base: "/phperkaigi/2025/code-battle/",
+	base: process.env.ALBATROSS_BASE_PATH || "/",
 	plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
 });

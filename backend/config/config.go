@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -6,12 +6,13 @@ import (
 )
 
 type Config struct {
-	dbHost     string
-	dbPort     string
-	dbUser     string
-	dbPassword string
-	dbName     string
-	isLocal    bool
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	BasePath   string
+	IsLocal    bool
 }
 
 func NewConfigFromEnv() (*Config, error) {
@@ -35,14 +36,19 @@ func NewConfigFromEnv() (*Config, error) {
 	if !exists {
 		return nil, fmt.Errorf("ALBATROSS_DB_NAME not set")
 	}
+	basePath, exists := os.LookupEnv("ALBATROSS_BASE_PATH")
+	if !exists {
+		return nil, fmt.Errorf("ALBATROSS_BASE_PATH not set")
+	}
 	isLocalStr, exists := os.LookupEnv("ALBATROSS_IS_LOCAL")
 	isLocal := exists && isLocalStr == "1"
 	return &Config{
-		dbHost:     dbHost,
-		dbPort:     dbPort,
-		dbUser:     dbUser,
-		dbPassword: dbPassword,
-		dbName:     dbName,
-		isLocal:    isLocal,
+		DBHost:     dbHost,
+		DBPort:     dbPort,
+		DBUser:     dbUser,
+		DBPassword: dbPassword,
+		DBName:     dbName,
+		BasePath:   basePath,
+		IsLocal:    isLocal,
 	}, nil
 }

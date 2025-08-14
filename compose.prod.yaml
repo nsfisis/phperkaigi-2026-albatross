@@ -37,6 +37,7 @@ services:
       context: ./frontend
       args:
         ALBATROSS_HOST: localhost
+        ALBATROSS_BASE_PATH: $ALBATROSS_BASE_PATH
     expose:
       - 80
     env_file: [.env]
