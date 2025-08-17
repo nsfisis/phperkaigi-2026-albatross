@@ -15,15 +15,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function Index() {
 	return (
-		<div className="min-h-screen bg-sky-600 flex flex-col items-center justify-center gap-y-6">
+		<div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-y-6">
 			<img
 				src={`${BASE_PATH}logo.svg`}
 				alt="iOSDC Japan 2025"
-				className="w-64 h-64"
+				className="w-96 h-auto"
 			/>
 			<div className="text-center">
-				<div className="font-bold text-sky-50 flex flex-col gap-y-2">
-					<div className="text-5xl">SWIFT CODE BATTLE</div>
+				<div className="font-bold text-transparent bg-clip-text bg-iosdc-japan">
+					<div className="text-6xl">Swift Code Battle</div>
 				</div>
 			</div>
 			<div className="mx-2">
