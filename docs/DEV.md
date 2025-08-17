@@ -24,7 +24,7 @@
 1. `direnv allow .` (optional)
 1. `make init`
 1. `make up`
-1. Access to http://localhost:5173/phperkaigi/2025/code-battle/.
+1. Access to http://localhost:5173/iosdc-japan/2025/code-battle/.
     * User `a`, `b` and `c` can log in with `pass` password.
     * User `a` and `b` are players.
     * User `c` is an administrator.

@@ -9,8 +9,8 @@ import GolfPlayApp from "../components/GolfPlayApp";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
 	{
 		title: data
-			? `Golf Playing ${data.game.display_name} | PHPerKaigi 2025 Albatross`
-			: "Golf Playing | PHPerKaigi 2025 Albatross",
+			? `Golf Playing ${data.game.display_name} | iOSDC Japan 2025 Albatross`
+			: "Golf Playing | iOSDC Japan 2025 Albatross",
 	},
 ];
 

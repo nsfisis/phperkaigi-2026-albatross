@@ -11,7 +11,7 @@ export default function UserIcon({ iconPath, displayName, className }: Props) {
 		<img
 			src={
 				process.env.NODE_ENV === "development"
-					? `http://localhost:8003${BASE_PATH}${iconPath}`
+					? `http://localhost:8004${BASE_PATH}${iconPath}`
 					: `${BASE_PATH}${iconPath}`
 			}
 			alt={`${displayName} のアイコン`}

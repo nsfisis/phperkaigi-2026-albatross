@@ -11,8 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/nullable"
 
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/auth"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/auth"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
 )
 
 type Handler struct {

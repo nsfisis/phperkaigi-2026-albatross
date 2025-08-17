@@ -6,7 +6,7 @@ import type { paths } from "./schema";
 const client = createClient<paths>({
 	baseUrl:
 		process.env.NODE_ENV === "development"
-			? `http://localhost:8003${API_BASE_PATH}`
+			? `http://localhost:8004${API_BASE_PATH}`
 			: `https://t.nil.ninja${API_BASE_PATH}`,
 });
 

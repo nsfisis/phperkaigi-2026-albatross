@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/account"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/fortee"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/account"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/fortee"
 )
 
 var (

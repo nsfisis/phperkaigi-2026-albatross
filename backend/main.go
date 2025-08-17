@@ -11,12 +11,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	oapimiddleware "github.com/oapi-codegen/echo-middleware"
 
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/admin"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/api"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/config"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/game"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/taskqueue"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/admin"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/api"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/config"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/game"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/taskqueue"
 )
 
 func connectDB(ctx context.Context, dsn string) (*pgxpool.Pool, error) {

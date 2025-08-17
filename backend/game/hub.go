@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/taskqueue"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/taskqueue"
 )
 
 type Hub struct {

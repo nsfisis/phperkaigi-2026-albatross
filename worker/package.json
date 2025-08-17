@@ -1,5 +1,5 @@
 {
-	"name": "phperkaigi-2025-albatross-worker",
+	"name": "iosdc-japan-2025-albatross-worker",
 	"private": true,
 	"type": "module",
 	"main": "index.mjs",

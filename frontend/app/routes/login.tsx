@@ -10,7 +10,7 @@ import InputText from "../components/InputText";
 import SubmitButton from "../components/SubmitButton";
 
 export const meta: MetaFunction = () => [
-	{ title: "Login | PHPerKaigi 2025 Albatross" },
+	{ title: "Login | iOSDC Japan 2025 Albatross" },
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {

@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/account"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/auth"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/config"
-	"github.com/nsfisis/phperkaigi-2025-albatross/backend/db"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/account"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/auth"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/config"
+	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
 )
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)

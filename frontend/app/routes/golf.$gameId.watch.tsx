@@ -9,8 +9,8 @@ import GolfWatchApp from "../components/GolfWatchApp";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
 	{
 		title: data
-			? `Golf Watching ${data.game.display_name} | PHPerKaigi 2025 Albatross`
-			: "Golf Watching | PHPerKaigi 2025 Albatross",
+			? `Golf Watching ${data.game.display_name} | iOSDC Japan 2025 Albatross`
+			: "Golf Watching | iOSDC Japan 2025 Albatross",
 	},
 ];
 
