@@ -1,7 +1,7 @@
+FROM node:22.14 AS builder
+
 ARG ALBATROSS_HOST
 ARG ALBATROSS_BASE_PATH
-
-FROM node:22.14 AS builder
 
 WORKDIR /app
 ENV NODE_ENV=production
