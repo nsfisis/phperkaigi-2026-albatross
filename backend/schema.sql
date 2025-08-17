@@ -46,6 +46,19 @@ CREATE TABLE game_main_players (
     CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
 
+CREATE TABLE submissions (
+    submission_id SERIAL      PRIMARY KEY,
+    game_id       INT         NOT NULL,
+    user_id       INT         NOT NULL,
+    code          TEXT        NOT NULL,
+    code_size     INT         NOT NULL,
+    status        VARCHAR(16) NOT NULL,
+    created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_game_id FOREIGN KEY(game_id) REFERENCES games(game_id),
+    CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(user_id)
+);
+CREATE INDEX idx_submissions_game_id_user_id ON submissions(game_id, user_id);
+
 CREATE TABLE game_states (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -66,19 +79,6 @@ CREATE TABLE testcases (
     CONSTRAINT fk_problem_id FOREIGN KEY(problem_id) REFERENCES problems(problem_id)
 );
 CREATE INDEX idx_testcases_problem_id ON testcases(problem_id);
-
-CREATE TABLE submissions (
-    submission_id SERIAL      PRIMARY KEY,
-    game_id       INT         NOT NULL,
-    user_id       INT         NOT NULL,
-    code          TEXT        NOT NULL,
-    code_size     INT         NOT NULL,
-    status        VARCHAR(16) NOT NULL,
-    created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_game_id FOREIGN KEY(game_id) REFERENCES games(game_id),
-    CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(user_id)
-);
-CREATE INDEX idx_submissions_game_id_user_id ON submissions(game_id, user_id);
 
 CREATE TABLE testcase_results (
     testcase_result_id SERIAL      PRIMARY KEY,
