@@ -10,12 +10,13 @@ import {
 } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
 
-type BundledLanguage = 'php'
+type BundledLanguage = 'php' | 'swift'
 type BundledTheme = 'github-light'
 type Highlighter = HighlighterGeneric<BundledLanguage, BundledTheme>
 
 const bundledLanguages = {
   php: () => import('@shikijs/langs/php'),
+  swift: () => import('@shikijs/langs/swift'),
 } as Record<BundledLanguage, DynamicImportLanguageRegistration>
 
 const bundledThemes = {

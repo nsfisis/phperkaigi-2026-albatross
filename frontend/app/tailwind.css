@@ -5,5 +5,12 @@
 }
 
 @utility bg-iosdc-japan {
-  background-image: linear-gradient(to right, #e03468, #ff523d, #f060b2, #a05cff, #008ccf);
+	background-image: linear-gradient(
+		to right,
+		#e03468,
+		#ff523d,
+		#f060b2,
+		#a05cff,
+		#008ccf
+	);
 }

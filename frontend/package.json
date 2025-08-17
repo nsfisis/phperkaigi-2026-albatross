@@ -11,7 +11,7 @@
 		"check:ts": "react-router typegen && tsc",
 		"dev": "react-router dev",
 		"openapi-typescript": "openapi-typescript --output ./app/api/schema.d.ts ../openapi/api-server.yaml",
-		"shiki-codegen": "shiki-codegen --langs php --themes github-light --engine javascript ./app/shiki.bundle.ts",
+		"shiki-codegen": "shiki-codegen --langs php,swift --themes github-light --engine javascript ./app/shiki.bundle.ts",
 		"start": "react-router-serve ./build/server/index.js"
 	},
 	"dependencies": {
