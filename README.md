@@ -19,8 +19,8 @@
 
 The contents of the repository are licensed under The MIT License, except for
 
-* [backend/admin/assets/css/normalize.css](backend/admin/assets/normalize.css),
-* [backend/admin/assets/css/sakura.css](backend/admin/assets/sakura.css),
+* [backend/admin/assets/css/normalize.css](backend/admin/assets/css/normalize.css),
+* [backend/admin/assets/css/sakura.css](backend/admin/assets/css/sakura.css),
 * [frontend/public/favicon.svg](frontend/public/favicon.svg) and
 * [frontend/public/logo.svg](frontend/public/logo.svg).
 
