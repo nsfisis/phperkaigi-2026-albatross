@@ -13,15 +13,15 @@ VALUES
     (3, 'password', '$2a$10$F/TePpu1pyJRWgn0e6A14.VL9D/17sRxT/2DyZ2Oi4Eg/lR6n7JcK');
 
 INSERT INTO problems
-(title, description, sample_code)
+(title, description, language, sample_code)
 VALUES
-    ('TEST problem 1', 'This is TEST problem 1', 'sample code'),
-    ('TEST problem 2', 'This is TEST problem 2', 'sample code'),
-    ('TEST problem 3', 'This is TEST problem 3', 'sample code'),
-    ('TEST problem 4', 'This is TEST problem 4', 'sample code'),
-    ('TEST problem 5', 'This is TEST problem 5', 'sample code'),
-    ('TEST problem 6', 'This is TEST problem 6', 'sample code'),
-    ('TEST problem 7', 'This is TEST problem 7', 'sample code');
+    ('TEST problem 1', 'This is TEST problem 1', 'php', 'sample code'),
+    ('TEST problem 2', 'This is TEST problem 2', 'php', 'sample code'),
+    ('TEST problem 3', 'This is TEST problem 3', 'php', 'sample code'),
+    ('TEST problem 4', 'This is TEST problem 4', 'php', 'sample code'),
+    ('TEST problem 5', 'This is TEST problem 5', 'php', 'sample code'),
+    ('TEST problem 6', 'This is TEST problem 6', 'php', 'sample code'),
+    ('TEST problem 7', 'This is TEST problem 7', 'php', 'sample code');
 
 INSERT INTO games
 (game_type, is_public, display_name, duration_seconds, problem_id)

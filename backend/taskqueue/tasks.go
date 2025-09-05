@@ -17,6 +17,7 @@ type TaskPayloadRunTestcase struct {
 	UserID       int
 	SubmissionID int
 	TestcaseID   int
+	Language     string
 	Code         string
 	Stdin        string
 	Stdout       string
@@ -27,6 +28,7 @@ func newTaskRunTestcase(
 	userID int,
 	submissionID int,
 	testcaseID int,
+	language string,
 	code string,
 	stdin string,
 	stdout string,
@@ -36,6 +38,7 @@ func newTaskRunTestcase(
 		UserID:       userID,
 		SubmissionID: submissionID,
 		TestcaseID:   testcaseID,
+		Language:     language,
 		Code:         code,
 		Stdin:        stdin,
 		Stdout:       stdout,

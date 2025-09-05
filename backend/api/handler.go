@@ -21,8 +21,8 @@ type Handler struct {
 }
 
 type GameHubInterface interface {
-	CalcCodeSize(code string) int
-	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, code string) error
+	CalcCodeSize(code string, language string) int
+	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
 }
 
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
@@ -88,6 +88,7 @@ func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth
 				ProblemID:   int(row.ProblemID),
 				Title:       row.Title,
 				Description: row.Description,
+				Language:    ProblemLanguage(*row.Language),
 				SampleCode:  row.SampleCode,
 			},
 		}
@@ -166,6 +167,7 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, _ *
 			ProblemID:   int(row.ProblemID),
 			Title:       row.Title,
 			Description: row.Description,
+			Language:    ProblemLanguage(*row.Language),
 			SampleCode:  row.SampleCode,
 		},
 		MainPlayers: mainPlayers,
@@ -294,10 +296,20 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	gameID := request.GameID
 	userID := user.UserID
 	code := request.Body.Code
-	codeSize := h.hub.CalcCodeSize(code)
+
+	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PostGamePlaySubmit404JSONResponse{}, nil
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	language := *gameRow.Language
+	codeSize := h.hub.CalcCodeSize(code, language)
 	// TODO: check if the game is running
 	// TODO: transaction
-	err := h.q.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
+	err = h.q.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
 		GameID: int32(gameID),
 		UserID: int32(userID),
 		Code:   code,
@@ -315,7 +327,7 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, userID, code)
+	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, userID, language, code)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

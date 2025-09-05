@@ -128,7 +128,7 @@ func (q *Queries) CreateUserAuth(ctx context.Context, arg CreateUserAuthParams) 
 }
 
 const getGameByID = `-- name: GetGameByID :one
-SELECT game_id, game_type, is_public, display_name, duration_seconds, created_at, started_at, games.problem_id, problems.problem_id, title, description, sample_code FROM games
+SELECT game_id, game_type, is_public, display_name, duration_seconds, created_at, started_at, games.problem_id, problems.problem_id, title, description, language, sample_code FROM games
 JOIN problems ON games.problem_id = problems.problem_id
 WHERE games.game_id = $1
 LIMIT 1
@@ -146,6 +146,7 @@ type GetGameByIDRow struct {
 	ProblemID_2     int32
 	Title           string
 	Description     string
+	Language        *string
 	SampleCode      string
 }
 
@@ -164,6 +165,7 @@ func (q *Queries) GetGameByID(ctx context.Context, gameID int32) (GetGameByIDRow
 		&i.ProblemID_2,
 		&i.Title,
 		&i.Description,
+		&i.Language,
 		&i.SampleCode,
 	)
 	return i, err
@@ -575,7 +577,7 @@ func (q *Queries) ListMainPlayers(ctx context.Context, dollar_1 []int32) ([]List
 }
 
 const listPublicGames = `-- name: ListPublicGames :many
-SELECT game_id, game_type, is_public, display_name, duration_seconds, created_at, started_at, games.problem_id, problems.problem_id, title, description, sample_code FROM games
+SELECT game_id, game_type, is_public, display_name, duration_seconds, created_at, started_at, games.problem_id, problems.problem_id, title, description, language, sample_code FROM games
 JOIN problems ON games.problem_id = problems.problem_id
 WHERE is_public = true
 ORDER BY games.game_id
@@ -593,6 +595,7 @@ type ListPublicGamesRow struct {
 	ProblemID_2     int32
 	Title           string
 	Description     string
+	Language        *string
 	SampleCode      string
 }
 
@@ -617,6 +620,7 @@ func (q *Queries) ListPublicGames(ctx context.Context) ([]ListPublicGamesRow, er
 			&i.ProblemID_2,
 			&i.Title,
 			&i.Description,
+			&i.Language,
 			&i.SampleCode,
 		); err != nil {
 			return nil, err

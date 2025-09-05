@@ -36,12 +36,17 @@ func (hub *Hub) Run() {
 	go hub.processTaskResults()
 }
 
-func (hub *Hub) CalcCodeSize(code string) int {
+func (hub *Hub) CalcCodeSize(code string, language string) int {
 	re := regexp.MustCompile(`\s+`)
-	return len(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(re.ReplaceAllString(code, ""), "<?php"), "<?"), "?>"))
+	trimmed := re.ReplaceAllString(code, "")
+	if language == "php" {
+		return len(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(trimmed, "<?php"), "<?"), "?>"))
+	} else {
+		return len(trimmed)
+	}
 }
 
-func (hub *Hub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, code string) error {
+func (hub *Hub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error {
 	rows, err := hub.q.ListTestcasesByGameID(ctx, int32(gameID))
 	if err != nil {
 		return err
@@ -52,6 +57,7 @@ func (hub *Hub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, user
 			userID,
 			submissionID,
 			int(row.TestcaseID),
+			language,
 			code,
 			row.Stdin,
 			row.Stdout,
