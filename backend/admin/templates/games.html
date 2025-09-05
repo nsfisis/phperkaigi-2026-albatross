@@ -5,6 +5,9 @@
 {{ end }}
 
 {{ define "content" }}
+<div>
+  <a href="{{ .BasePath }}admin/games/new">Create New Game</a>
+</div>
 <ul>
   {{ range .Games }}
     <li>

@@ -34,8 +34,12 @@
     <input type="datetime-local" name="started_at" value="{{ if .Game.StartedAt }}{{ .Game.StartedAt }}{{ end }}">
   </div>
   <div>
-    <label>Problem ID</label>
-    <input type="text" name="problem_id" value="{{ .Game.ProblemID }}">
+    <label>Problem</label>
+    <select name="problem_id" required>
+      {{ range .Problems }}
+        <option value="{{ .ProblemID }}"{{ if eq $.Game.ProblemID .ProblemID }} selected{{ end }}>{{ .Title }} (id={{ .ProblemID }})</option>
+      {{ end }}
+    </select>
   </div>
   <div>
     <label>Main Player 1</label>

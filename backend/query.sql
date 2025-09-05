@@ -51,6 +51,11 @@ ORDER BY games.game_id;
 SELECT * FROM games
 ORDER BY games.game_id;
 
+-- name: CreateGame :one
+INSERT INTO games (game_type, is_public, display_name, duration_seconds, problem_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING game_id;
+
 -- name: UpdateGameStartedAt :exec
 UPDATE games
 SET started_at = $2

@@ -1,0 +1,40 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/games">Games</a>
+{{ end }}
+
+{{ define "content" }}
+<form method="post">
+  <div>
+    <label>Display Name</label>
+    <input type="text" name="display_name" required>
+  </div>
+  <div>
+    <label>Game Type</label>
+    <select name="game_type" required>
+      <option value="1v1">1v1</option>
+      <option value="multiplayer">Multiplayer</option>
+    </select>
+  </div>
+  <div>
+    <label>Is Public</label>
+    <input type="checkbox" name="is_public">
+  </div>
+  <div>
+    <label>Duration Seconds</label>
+    <input type="number" name="duration_seconds" value="900" required>
+  </div>
+  <div>
+    <label>Problem</label>
+    <select name="problem_id" required>
+      {{ range .Problems }}
+        <option value="{{ .ProblemID }}">{{ .Title }} (id={{ .ProblemID }})</option>
+      {{ end }}
+    </select>
+  </div>
+  <div>
+    <button type="submit">Create</button>
+  </div>
+</form>
+{{ end }}

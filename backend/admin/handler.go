@@ -62,6 +62,8 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.POST("/users/:userID/fetch-icon", h.postUserFetchIcon)
 
 	g.GET("/games", h.getGames)
+	g.GET("/games/new", h.getGameNew)
+	g.POST("/games/new", h.postGameNew)
 	g.GET("/games/:gameID", h.getGameEdit)
 	g.POST("/games/:gameID", h.postGameEdit)
 	g.POST("/games/:gameID/start", h.postGameStart)
@@ -77,6 +79,44 @@ func (h *Handler) getDashboard(c echo.Context) error {
 	return c.Render(http.StatusOK, "dashboard", echo.Map{
 		"BasePath": h.conf.BasePath,
 		"Title":    "Dashboard",
+	})
+}
+
+func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
+	game1, err := strconv.Atoi(c.QueryParam("game_1"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_1")
+	}
+	game2, err := strconv.Atoi(c.QueryParam("game_2"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_2")
+	}
+
+	rows, err := h.q.GetQualifyingRanking(c.Request().Context(), db.GetQualifyingRankingParams{
+		GameID:   int32(game1),
+		GameID_2: int32(game2),
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	entries := make([]echo.Map, len(rows))
+	for i, r := range rows {
+		entries[i] = echo.Map{
+			"Rank":         i + 1,
+			"Username":     r.Username,
+			"UserLabel":    r.UserLabel,
+			"Score1":       r.CodeSize1,
+			"Score2":       r.CodeSize2,
+			"TotalScore":   r.TotalCodeSize,
+			"SubmittedAt1": r.SubmittedAt1.Time.In(jst).Format("2006-01-02T15:04"),
+			"SubmittedAt2": r.SubmittedAt2.Time.In(jst).Format("2006-01-02T15:04"),
+		}
+	}
+	return c.Render(http.StatusOK, "online_qualifying_ranking", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Online Qualifying Ranking",
+		"Entries":  entries,
 	})
 }
 
@@ -215,6 +255,60 @@ func (h *Handler) getGames(c echo.Context) error {
 	})
 }
 
+func (h *Handler) getGameNew(c echo.Context) error {
+	problemRows, err := h.q.ListProblems(c.Request().Context())
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+	var problems []echo.Map
+	for _, p := range problemRows {
+		problems = append(problems, echo.Map{
+			"ProblemID": int(p.ProblemID),
+			"Title":     p.Title,
+		})
+	}
+
+	return c.Render(http.StatusOK, "game_new", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "New Game",
+		"Problems": problems,
+	})
+}
+
+func (h *Handler) postGameNew(c echo.Context) error {
+	gameType := c.FormValue("game_type")
+	isPublic := (c.FormValue("is_public") != "")
+	displayName := c.FormValue("display_name")
+	durationSeconds, err := strconv.Atoi(c.FormValue("duration_seconds"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid duration_seconds")
+	}
+	var problemID int
+	{
+		problemIDRaw := c.FormValue("problem_id")
+		problemIDInt, err := strconv.Atoi(problemIDRaw)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem_id")
+		}
+		problemID = problemIDInt
+	}
+
+	_, err = h.q.CreateGame(c.Request().Context(), db.CreateGameParams{
+		GameType:        gameType,
+		IsPublic:        isPublic,
+		DisplayName:     displayName,
+		DurationSeconds: int32(durationSeconds),
+		ProblemID:       int32(problemID),
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
+}
+
 func (h *Handler) getGameEdit(c echo.Context) error {
 	gameID, err := strconv.Atoi(c.Param("gameID"))
 	if err != nil {
@@ -248,6 +342,20 @@ func (h *Handler) getGameEdit(c echo.Context) error {
 		mainPlayer2 = int(mainPlayerRows[1].UserID)
 	}
 
+	problemRows, err := h.q.ListProblems(c.Request().Context())
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+	var problems []echo.Map
+	for _, p := range problemRows {
+		problems = append(problems, echo.Map{
+			"ProblemID": int(p.ProblemID),
+			"Title":     p.Title,
+		})
+	}
+
 	userRows, err := h.q.ListUsers(c.Request().Context())
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -276,7 +384,8 @@ func (h *Handler) getGameEdit(c echo.Context) error {
 			"MainPlayer1":     mainPlayer1,
 			"MainPlayer2":     mainPlayer2,
 		},
-		"Users": users,
+		"Problems": problems,
+		"Users":    users,
 	})
 }
 
@@ -396,44 +505,6 @@ func (h *Handler) postGameStart(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
-}
-
-func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
-	game1, err := strconv.Atoi(c.QueryParam("game_1"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_1")
-	}
-	game2, err := strconv.Atoi(c.QueryParam("game_2"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_2")
-	}
-
-	rows, err := h.q.GetQualifyingRanking(c.Request().Context(), db.GetQualifyingRankingParams{
-		GameID:   int32(game1),
-		GameID_2: int32(game2),
-	})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	entries := make([]echo.Map, len(rows))
-	for i, r := range rows {
-		entries[i] = echo.Map{
-			"Rank":         i + 1,
-			"Username":     r.Username,
-			"UserLabel":    r.UserLabel,
-			"Score1":       r.CodeSize1,
-			"Score2":       r.CodeSize2,
-			"TotalScore":   r.TotalCodeSize,
-			"SubmittedAt1": r.SubmittedAt1.Time.In(jst).Format("2006-01-02T15:04"),
-			"SubmittedAt2": r.SubmittedAt2.Time.In(jst).Format("2006-01-02T15:04"),
-		}
-	}
-	return c.Render(http.StatusOK, "online_qualifying_ranking", echo.Map{
-		"BasePath": h.conf.BasePath,
-		"Title":    "Online Qualifying Ranking",
-		"Entries":  entries,
-	})
 }
 
 func (h *Handler) getProblems(c echo.Context) error {

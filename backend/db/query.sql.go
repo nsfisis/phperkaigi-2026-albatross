@@ -50,6 +50,33 @@ func (q *Queries) AggregateTestcaseResults(ctx context.Context, submissionID int
 	return status, err
 }
 
+const createGame = `-- name: CreateGame :one
+INSERT INTO games (game_type, is_public, display_name, duration_seconds, problem_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING game_id
+`
+
+type CreateGameParams struct {
+	GameType        string
+	IsPublic        bool
+	DisplayName     string
+	DurationSeconds int32
+	ProblemID       int32
+}
+
+func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int32, error) {
+	row := q.db.QueryRow(ctx, createGame,
+		arg.GameType,
+		arg.IsPublic,
+		arg.DisplayName,
+		arg.DurationSeconds,
+		arg.ProblemID,
+	)
+	var game_id int32
+	err := row.Scan(&game_id)
+	return game_id, err
+}
+
 const createProblem = `-- name: CreateProblem :one
 INSERT INTO problems (title, description, language, sample_code)
 VALUES ($1, $2, $3, $4)
