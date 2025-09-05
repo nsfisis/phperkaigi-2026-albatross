@@ -41,9 +41,8 @@ func (hub *Hub) CalcCodeSize(code string, language string) int {
 	trimmed := re.ReplaceAllString(code, "")
 	if language == "php" {
 		return len(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(trimmed, "<?php"), "<?"), "?>"))
-	} else {
-		return len(trimmed)
 	}
+	return len(trimmed)
 }
 
 func (hub *Hub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error {

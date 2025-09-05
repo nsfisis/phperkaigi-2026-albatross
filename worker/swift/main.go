@@ -18,9 +18,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.POST("/api/swiftc", handleSwiftCompile)
-	e.POST("/api/wasmc", handleWasmCompile)
-	e.POST("/api/testrun", handleTestRun)
+	e.POST("/exec", handleExec)
 
 	if err := e.Start(":80"); err != http.ErrServerClosed {
 		log.Fatal(err)

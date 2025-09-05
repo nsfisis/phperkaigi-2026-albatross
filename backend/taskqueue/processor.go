@@ -3,6 +3,7 @@ package taskqueue
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ func newProcessor() processor {
 
 type testrunRequestData struct {
 	Code        string `json:"code"`
+	CodeHash    string `json:"code_hash"`
 	Stdin       string `json:"stdin"`
 	MaxDuration int    `json:"max_duration_ms"`
 }
@@ -32,6 +34,7 @@ func (p *processor) doProcessTaskRunTestcase(
 ) (*TaskResultRunTestcase, error) {
 	reqData := testrunRequestData{
 		Code:        payload.Code,
+		CodeHash:    calcCodeHash(payload.Code),
 		Stdin:       payload.Stdin,
 		MaxDuration: 5000,
 	}
@@ -63,4 +66,8 @@ func (p *processor) doProcessTaskRunTestcase(
 		Stdout:      resData.Stdout,
 		Stderr:      resData.Stderr,
 	}, nil
+}
+
+func calcCodeHash(code string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(code)))
 }
