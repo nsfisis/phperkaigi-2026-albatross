@@ -79,6 +79,14 @@ services:
     env_file: [.env]
     restart: always
 
+  worker-swift:
+    build:
+      context: ./worker/php
+    expose:
+      - 80
+    env_file: [.env]
+    restart: always
+
   tools:
     build:
       context: ./backend
