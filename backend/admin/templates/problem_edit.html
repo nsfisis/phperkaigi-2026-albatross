@@ -33,4 +33,10 @@
     <button type="submit">Save</button>
   </div>
 </form>
+<div>
+  <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases">View Testcases</a>
+</div>
+<div>
+  <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases/new">Add New Testcase</a>
+</div>
 {{ end }}

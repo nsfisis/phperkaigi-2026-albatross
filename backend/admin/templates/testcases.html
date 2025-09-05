@@ -1,0 +1,26 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/problems">Problems</a> | <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}">{{ .Problem.Title }}</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>Testcases for {{ .Problem.Title }}</h2>
+<div>
+  <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases/new">Create New Testcase</a>
+</div>
+{{ range .Testcases }}
+  <h3>{{ .TestcaseID }}</h3>
+  <div>
+    <a href="{{ $.BasePath }}admin/problems/{{ $.Problem.ProblemID }}/testcases/{{ .TestcaseID }}">Edit</a>
+  </div>
+  <h4>Stdin</h4>
+  <div>
+    <pre><code>{{ .Stdin }}</code></pre>
+  </div>
+  <h4>Stdout</h4>
+  <div>
+    <pre><code>{{ .Stdout }}</code></pre>
+  </div>
+{{ end }}
+{{ end }}

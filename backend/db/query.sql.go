@@ -127,6 +127,25 @@ func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionPara
 	return submission_id, err
 }
 
+const createTestcase = `-- name: CreateTestcase :one
+INSERT INTO testcases (problem_id, stdin, stdout)
+VALUES ($1, $2, $3)
+RETURNING testcase_id
+`
+
+type CreateTestcaseParams struct {
+	ProblemID int32
+	Stdin     string
+	Stdout    string
+}
+
+func (q *Queries) CreateTestcase(ctx context.Context, arg CreateTestcaseParams) (int32, error) {
+	row := q.db.QueryRow(ctx, createTestcase, arg.ProblemID, arg.Stdin, arg.Stdout)
+	var testcase_id int32
+	err := row.Scan(&testcase_id)
+	return testcase_id, err
+}
+
 const createTestcaseResult = `-- name: CreateTestcaseResult :exec
 INSERT INTO testcase_results (submission_id, testcase_id, status, stdout, stderr)
 VALUES ($1, $2, $3, $4, $5)
@@ -176,6 +195,16 @@ type CreateUserAuthParams struct {
 
 func (q *Queries) CreateUserAuth(ctx context.Context, arg CreateUserAuthParams) error {
 	_, err := q.db.Exec(ctx, createUserAuth, arg.UserID, arg.AuthType)
+	return err
+}
+
+const deleteTestcase = `-- name: DeleteTestcase :exec
+DELETE FROM testcases
+WHERE testcase_id = $1
+`
+
+func (q *Queries) DeleteTestcase(ctx context.Context, testcaseID int32) error {
+	_, err := q.db.Exec(ctx, deleteTestcase, testcaseID)
 	return err
 }
 
@@ -459,6 +488,24 @@ func (q *Queries) GetRanking(ctx context.Context, gameID int32) ([]GetRankingRow
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTestcaseByID = `-- name: GetTestcaseByID :one
+SELECT testcase_id, problem_id, stdin, stdout FROM testcases
+WHERE testcase_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetTestcaseByID(ctx context.Context, testcaseID int32) (Testcase, error) {
+	row := q.db.QueryRow(ctx, getTestcaseByID, testcaseID)
+	var i Testcase
+	err := row.Scan(
+		&i.TestcaseID,
+		&i.ProblemID,
+		&i.Stdin,
+		&i.Stdout,
+	)
+	return i, err
 }
 
 const getUserAuthByUsername = `-- name: GetUserAuthByUsername :one
@@ -759,6 +806,36 @@ func (q *Queries) ListSubmissionIDs(ctx context.Context) ([]int32, error) {
 	return items, nil
 }
 
+const listTestcases = `-- name: ListTestcases :many
+SELECT testcase_id, problem_id, stdin, stdout FROM testcases
+ORDER BY testcase_id
+`
+
+func (q *Queries) ListTestcases(ctx context.Context) ([]Testcase, error) {
+	rows, err := q.db.Query(ctx, listTestcases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Testcase
+	for rows.Next() {
+		var i Testcase
+		if err := rows.Scan(
+			&i.TestcaseID,
+			&i.ProblemID,
+			&i.Stdin,
+			&i.Stdout,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTestcasesByGameID = `-- name: ListTestcasesByGameID :many
 SELECT testcase_id, problem_id, stdin, stdout FROM testcases
 WHERE testcases.problem_id = (SELECT problem_id FROM games WHERE game_id = $1)
@@ -767,6 +844,37 @@ ORDER BY testcases.testcase_id
 
 func (q *Queries) ListTestcasesByGameID(ctx context.Context, gameID int32) ([]Testcase, error) {
 	rows, err := q.db.Query(ctx, listTestcasesByGameID, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Testcase
+	for rows.Next() {
+		var i Testcase
+		if err := rows.Scan(
+			&i.TestcaseID,
+			&i.ProblemID,
+			&i.Stdin,
+			&i.Stdout,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTestcasesByProblemID = `-- name: ListTestcasesByProblemID :many
+SELECT testcase_id, problem_id, stdin, stdout FROM testcases
+WHERE problem_id = $1
+ORDER BY testcase_id
+`
+
+func (q *Queries) ListTestcasesByProblemID(ctx context.Context, problemID int32) ([]Testcase, error) {
+	rows, err := q.db.Query(ctx, listTestcasesByProblemID, problemID)
 	if err != nil {
 		return nil, err
 	}
@@ -1012,6 +1120,32 @@ type UpdateSubmissionStatusParams struct {
 
 func (q *Queries) UpdateSubmissionStatus(ctx context.Context, arg UpdateSubmissionStatusParams) error {
 	_, err := q.db.Exec(ctx, updateSubmissionStatus, arg.SubmissionID, arg.Status)
+	return err
+}
+
+const updateTestcase = `-- name: UpdateTestcase :exec
+UPDATE testcases
+SET
+    problem_id = $2,
+    stdin = $3,
+    stdout = $4
+WHERE testcase_id = $1
+`
+
+type UpdateTestcaseParams struct {
+	TestcaseID int32
+	ProblemID  int32
+	Stdin      string
+	Stdout     string
+}
+
+func (q *Queries) UpdateTestcase(ctx context.Context, arg UpdateTestcaseParams) error {
+	_, err := q.db.Exec(ctx, updateTestcase,
+		arg.TestcaseID,
+		arg.ProblemID,
+		arg.Stdin,
+		arg.Stdout,
+	)
 	return err
 }
 

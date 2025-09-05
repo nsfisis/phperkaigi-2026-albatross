@@ -222,3 +222,34 @@ SET
     language = $4,
     sample_code = $5
 WHERE problem_id = $1;
+
+-- name: ListTestcases :many
+SELECT * FROM testcases
+ORDER BY testcase_id;
+
+-- name: ListTestcasesByProblemID :many
+SELECT * FROM testcases
+WHERE problem_id = $1
+ORDER BY testcase_id;
+
+-- name: GetTestcaseByID :one
+SELECT * FROM testcases
+WHERE testcase_id = $1
+LIMIT 1;
+
+-- name: CreateTestcase :one
+INSERT INTO testcases (problem_id, stdin, stdout)
+VALUES ($1, $2, $3)
+RETURNING testcase_id;
+
+-- name: UpdateTestcase :exec
+UPDATE testcases
+SET
+    problem_id = $2,
+    stdin = $3,
+    stdout = $4
+WHERE testcase_id = $1;
+
+-- name: DeleteTestcase :exec
+DELETE FROM testcases
+WHERE testcase_id = $1;

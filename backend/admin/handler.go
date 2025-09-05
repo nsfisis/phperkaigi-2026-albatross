@@ -73,6 +73,12 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.POST("/problems/new", h.postProblemNew)
 	g.GET("/problems/:problemID", h.getProblemEdit)
 	g.POST("/problems/:problemID", h.postProblemEdit)
+	g.GET("/problems/:problemID/testcases", h.getTestcases)
+	g.GET("/problems/:problemID/testcases/new", h.getTestcaseNew)
+	g.POST("/problems/:problemID/testcases/new", h.postTestcaseNew)
+	g.GET("/problems/:problemID/testcases/:testcaseID", h.getTestcaseEdit)
+	g.POST("/problems/:problemID/testcases/:testcaseID", h.postTestcaseEdit)
+	g.POST("/problems/:problemID/testcases/:testcaseID/delete", h.postTestcaseDelete)
 }
 
 func (h *Handler) getDashboard(c echo.Context) error {
@@ -604,4 +610,199 @@ func (h *Handler) postProblemEdit(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems")
+}
+
+func (h *Handler) getTestcases(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem id")
+	}
+
+	// Get problem info
+	problem, err := h.q.GetProblemByID(c.Request().Context(), int32(problemID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Get testcases for this problem
+	rows, err := h.q.ListTestcasesByProblemID(c.Request().Context(), int32(problemID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	testcases := make([]echo.Map, len(rows))
+	for i, tc := range rows {
+		testcases[i] = echo.Map{
+			"TestcaseID": tc.TestcaseID,
+			"ProblemID":  tc.ProblemID,
+			"Stdin":      tc.Stdin,
+			"Stdout":     tc.Stdout,
+		}
+	}
+
+	return c.Render(http.StatusOK, "testcases", echo.Map{
+		"BasePath":  h.conf.BasePath,
+		"Title":     "Testcases for " + problem.Title,
+		"Problem":   echo.Map{"ProblemID": problem.ProblemID, "Title": problem.Title},
+		"Testcases": testcases,
+	})
+}
+
+func (h *Handler) getTestcaseNew(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem id")
+	}
+
+	// Get problem info
+	problem, err := h.q.GetProblemByID(c.Request().Context(), int32(problemID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Render(http.StatusOK, "testcase_new", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "New Testcase for " + problem.Title,
+		"Problem":  echo.Map{"ProblemID": problem.ProblemID, "Title": problem.Title},
+	})
+}
+
+func (h *Handler) postTestcaseNew(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem_id")
+	}
+	stdin := c.FormValue("stdin")
+	stdout := c.FormValue("stdout")
+
+	_, err = h.q.CreateTestcase(c.Request().Context(), db.CreateTestcaseParams{
+		ProblemID: int32(problemID),
+		Stdin:     stdin,
+		Stdout:    stdout,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems/"+strconv.Itoa(problemID)+"/testcases")
+}
+
+func (h *Handler) getTestcaseEdit(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem id")
+	}
+	testcaseID, err := strconv.Atoi(c.Param("testcaseID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid testcase id")
+	}
+
+	// Get problem info
+	problem, err := h.q.GetProblemByID(c.Request().Context(), int32(problemID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Get testcase info and verify it belongs to this problem
+	testcase, err := h.q.GetTestcaseByID(c.Request().Context(), int32(testcaseID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Verify the testcase belongs to the specified problem
+	if testcase.ProblemID != int32(problemID) {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	return c.Render(http.StatusOK, "testcase_edit", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Edit Testcase for " + problem.Title,
+		"Problem":  echo.Map{"ProblemID": problem.ProblemID, "Title": problem.Title},
+		"Testcase": echo.Map{
+			"TestcaseID": testcase.TestcaseID,
+			"ProblemID":  testcase.ProblemID,
+			"Stdin":      testcase.Stdin,
+			"Stdout":     testcase.Stdout,
+		},
+	})
+}
+
+func (h *Handler) postTestcaseEdit(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem_id")
+	}
+	testcaseID, err := strconv.Atoi(c.Param("testcaseID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid testcase_id")
+	}
+
+	// Verify the testcase belongs to this problem before updating
+	testcase, err := h.q.GetTestcaseByID(c.Request().Context(), int32(testcaseID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if testcase.ProblemID != int32(problemID) {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	stdin := c.FormValue("stdin")
+	stdout := c.FormValue("stdout")
+
+	err = h.q.UpdateTestcase(c.Request().Context(), db.UpdateTestcaseParams{
+		TestcaseID: int32(testcaseID),
+		ProblemID:  int32(problemID),
+		Stdin:      stdin,
+		Stdout:     stdout,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems/"+strconv.Itoa(problemID)+"/testcases")
+}
+
+func (h *Handler) postTestcaseDelete(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem_id")
+	}
+	testcaseID, err := strconv.Atoi(c.Param("testcaseID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid testcase_id")
+	}
+
+	// Verify the testcase belongs to this problem before deleting
+	testcase, err := h.q.GetTestcaseByID(c.Request().Context(), int32(testcaseID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if testcase.ProblemID != int32(problemID) {
+		return echo.NewHTTPError(http.StatusNotFound)
+	}
+
+	err = h.q.DeleteTestcase(c.Request().Context(), int32(testcaseID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems/"+strconv.Itoa(problemID)+"/testcases")
 }

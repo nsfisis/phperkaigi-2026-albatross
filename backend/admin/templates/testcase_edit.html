@@ -1,0 +1,36 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/problems">Problems</a> | <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}">{{ .Problem.Title }}</a> | <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases">Testcases</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>Edit Testcase for {{ .Problem.Title }}</h2>
+<form method="post">
+  <div>
+    <label>Testcase ID</label>
+    <input type="text" name="testcase_id" value="{{ .Testcase.TestcaseID }}" readonly required>
+  </div>
+  <div>
+    <label>Problem</label>
+    <input type="text" value="{{ .Problem.Title }}" readonly>
+    <input type="hidden" name="problem_id" value="{{ .Problem.ProblemID }}">
+  </div>
+  <div>
+    <label>Stdin</label>
+    <textarea name="stdin" rows="10" required>{{ .Testcase.Stdin }}</textarea>
+  </div>
+  <div>
+    <label>Stdout</label>
+    <textarea name="stdout" rows="10" required>{{ .Testcase.Stdout }}</textarea>
+  </div>
+  <div>
+    <button type="submit">Save</button>
+  </div>
+</form>
+<form method="post" action="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases/{{ .Testcase.TestcaseID }}/delete" onsubmit="return confirm('Are you sure you want to delete this testcase?');">
+  <div>
+    <button type="submit">Delete</button>
+  </div>
+</form>
+{{ end }}

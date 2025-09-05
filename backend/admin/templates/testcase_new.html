@@ -1,0 +1,27 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/problems">Problems</a> | <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}">{{ .Problem.Title }}</a> | <a href="{{ .BasePath }}admin/problems/{{ .Problem.ProblemID }}/testcases">Testcases</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>New Testcase for {{ .Problem.Title }}</h2>
+<form method="post">
+  <div>
+    <label>Problem</label>
+    <input type="text" value="{{ .Problem.Title }}" readonly>
+    <input type="hidden" name="problem_id" value="{{ .Problem.ProblemID }}">
+  </div>
+  <div>
+    <label>Stdin</label>
+    <textarea name="stdin" rows="10" required></textarea>
+  </div>
+  <div>
+    <label>Stdout</label>
+    <textarea name="stdout" rows="10" required></textarea>
+  </div>
+  <div>
+    <button type="submit">Create</button>
+  </div>
+</form>
+{{ end }}
