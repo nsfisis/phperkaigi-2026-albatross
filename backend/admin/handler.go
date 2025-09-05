@@ -55,6 +55,7 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.GET("/dashboard", h.getDashboard)
 
 	g.GET("/online-qualifying-ranking", h.getOnlineQualifyingRanking)
+	g.POST("/fix", h.postFix)
 
 	g.GET("/users", h.getUsers)
 	g.GET("/users/:userID", h.getUserEdit)
@@ -124,6 +125,43 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 		"Title":    "Online Qualifying Ranking",
 		"Entries":  entries,
 	})
+}
+
+func (h *Handler) postFix(c echo.Context) error {
+	rows, err := h.q.ListSubmissionIDs(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	for _, submissionID := range rows {
+		as, err := h.q.AggregateTestcaseResults(c.Request().Context(), submissionID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		err = h.q.UpdateSubmissionStatus(c.Request().Context(), db.UpdateSubmissionStatusParams{
+			SubmissionID: submissionID,
+			Status:       as,
+		})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	rows2, err := h.q.ListGameStateIDs(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	for _, r := range rows2 {
+		gameID := r.GameID
+		userID := r.UserID
+		err := h.q.SyncGameStateBestScoreSubmission(c.Request().Context(), db.SyncGameStateBestScoreSubmissionParams{
+			GameID: gameID,
+			UserID: userID,
+		})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/dashboard")
 }
 
 func (h *Handler) getUsers(c echo.Context) error {
