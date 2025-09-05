@@ -1,5 +1,6 @@
 import { atom } from "jotai";
 import type { components } from "../api/schema";
+import type { SupportedLanguage } from "../types/SupportedLanguage";
 
 const gameStartedAtAtom = atom<number | null>(null);
 export const setGameStartedAtAtom = atom(null, (_, set, value: number | null) =>
@@ -101,12 +102,23 @@ export const setLatestGameStateAtom = atom(
 	},
 );
 
-export function calcCodeSize(code: string): number {
-	const trimmed = code
-		.replace(/\s+/g, "")
-		.replace(/^<\?php/, "")
-		.replace(/^<\?/, "")
-		.replace(/\?>$/, "");
+function cleanCode(code: string, language: SupportedLanguage) {
+	if (language === "php") {
+		return code
+			.replace(/\s+/g, "")
+			.replace(/^<\?php/, "")
+			.replace(/^<\?/, "")
+			.replace(/\?>$/, "");
+	} else {
+		return code.replace(/\s+/g, "");
+	}
+}
+
+export function calcCodeSize(
+	code: string,
+	language: SupportedLanguage,
+): number {
+	const trimmed = cleanCode(code, language);
 	const utf8Encoded = new TextEncoder().encode(trimmed);
 	return utf8Encoded.length;
 }

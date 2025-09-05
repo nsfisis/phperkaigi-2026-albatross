@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Albatross internal web API
-  version: 0.1.0
+  version: 0.2.0
 paths:
   /login:
     post:
@@ -349,6 +349,12 @@ components:
         description:
           type: string
           example: "This is a problem"
+        language:
+          type: string
+          example: "php"
+          enum:
+            - php
+            - swift
         sample_code:
           type: string
           example: "echo 'hello world';"
@@ -356,6 +362,7 @@ components:
         - problem_id
         - title
         - description
+        - language
         - sample_code
     ExecutionStatus:
       type: string

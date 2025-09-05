@@ -136,6 +136,7 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 				playerProfile={playerProfile}
 				problemTitle={game.problem.title}
 				problemDescription={game.problem.description}
+				problemLanguage={game.problem.language}
 				sampleCode={game.problem.sample_code}
 				initialCode={initialGameState.code}
 				onCodeChange={onCodeChange}

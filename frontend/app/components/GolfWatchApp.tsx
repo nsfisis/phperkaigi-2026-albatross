@@ -137,6 +137,7 @@ export default function GolfWatchApp({
 				playerProfileB={playerProfileB}
 				problemTitle={game.problem.title}
 				problemDescription={game.problem.description}
+				problemLanguage={game.problem.language}
 				sampleCode={game.problem.sample_code}
 			/>
 		) : (
@@ -144,6 +145,7 @@ export default function GolfWatchApp({
 				gameDisplayName={game.display_name}
 				problemTitle={game.problem.title}
 				problemDescription={game.problem.description}
+				problemLanguage={game.problem.language}
 				sampleCode={game.problem.sample_code}
 			/>
 		);

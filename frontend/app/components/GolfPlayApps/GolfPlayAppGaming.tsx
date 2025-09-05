@@ -8,6 +8,7 @@ import {
 	statusAtom,
 } from "../../states/play";
 import type { PlayerProfile } from "../../types/PlayerProfile";
+import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import BorderedContainer from "../BorderedContainer";
 import LeftTime from "../Gaming/LeftTime";
 import ProblemColumn from "../Gaming/ProblemColumn";
@@ -22,6 +23,7 @@ type Props = {
 	playerProfile: PlayerProfile;
 	problemTitle: string;
 	problemDescription: string;
+	problemLanguage: SupportedLanguage;
 	sampleCode: string;
 	initialCode: string;
 	onCodeChange: (code: string) => void;
@@ -34,6 +36,7 @@ export default function GolfPlayAppGaming({
 	playerProfile,
 	problemTitle,
 	problemDescription,
+	problemLanguage,
 	sampleCode,
 	initialCode,
 	onCodeChange,
@@ -44,11 +47,13 @@ export default function GolfPlayAppGaming({
 	const score = useAtomValue(scoreAtom);
 	const status = useAtomValue(statusAtom);
 
-	const [codeSize, setCodeSize] = useState(calcCodeSize(initialCode));
+	const [codeSize, setCodeSize] = useState(
+		calcCodeSize(initialCode, problemLanguage),
+	);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		setCodeSize(calcCodeSize(e.target.value));
+		setCodeSize(calcCodeSize(e.target.value, problemLanguage));
 		if (!isFinished) {
 			onCodeChange(e.target.value);
 		}
@@ -91,6 +96,7 @@ export default function GolfPlayAppGaming({
 				<ProblemColumn
 					title={problemTitle}
 					description={problemDescription}
+					language={problemLanguage}
 					sampleCode={sampleCode}
 				/>
 				<TitledColumn title="ソースコード">

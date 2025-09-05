@@ -188,6 +188,11 @@ export interface components {
             title: string;
             /** @example This is a problem */
             description: string;
+            /**
+             * @example php
+             * @enum {string}
+             */
+            language: "php" | "swift";
             /** @example echo 'hello world'; */
             sample_code: string;
         };

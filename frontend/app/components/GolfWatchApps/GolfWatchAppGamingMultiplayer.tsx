@@ -1,5 +1,6 @@
 import { useAtomValue } from "jotai";
 import { gamingLeftTimeSecondsAtom } from "../../states/watch";
+import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import LeftTime from "../Gaming/LeftTime";
 import ProblemColumn from "../Gaming/ProblemColumn";
 import RankingTable from "../Gaming/RankingTable";
@@ -10,6 +11,7 @@ type Props = {
 	gameDisplayName: string;
 	problemTitle: string;
 	problemDescription: string;
+	problemLanguage: SupportedLanguage;
 	sampleCode: string;
 };
 
@@ -17,6 +19,7 @@ export default function GolfWatchAppGamingMultiplayer({
 	gameDisplayName,
 	problemTitle,
 	problemDescription,
+	problemLanguage,
 	sampleCode,
 }: Props) {
 	const leftTimeSeconds = useAtomValue(gamingLeftTimeSecondsAtom)!;
@@ -35,10 +38,11 @@ export default function GolfWatchAppGamingMultiplayer({
 				<ProblemColumn
 					title={problemTitle}
 					description={problemDescription}
+					language={problemLanguage}
 					sampleCode={sampleCode}
 				/>
 				<TitledColumn title="順位表">
-					<RankingTable />
+					<RankingTable problemLanguage={problemLanguage} />
 				</TitledColumn>
 			</TwoColumnLayout>
 		</div>

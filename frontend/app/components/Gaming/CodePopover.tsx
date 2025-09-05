@@ -2,15 +2,17 @@ import { Popover } from "@base-ui-components/react/popover";
 import { faCode, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { calcCodeSize } from "../../states/play";
+import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import BorderedContainer from "../BorderedContainer";
 import CodeBlock from "../Gaming/CodeBlock";
 
 type Props = {
 	code: string;
+	language: SupportedLanguage;
 };
 
-export default function CodePopover({ code }: Props) {
-	const codeSize = calcCodeSize(code);
+export default function CodePopover({ code, language }: Props) {
+	const codeSize = calcCodeSize(code, language);
 
 	return (
 		<Popover.Root>
@@ -33,7 +35,7 @@ export default function CodePopover({ code }: Props) {
 									/>
 								</Popover.Close>
 							</div>
-							<CodeBlock code={code} language="php" />
+							<CodeBlock code={code} language={language} />
 						</BorderedContainer>
 					</Popover.Popup>
 				</Popover.Positioner>

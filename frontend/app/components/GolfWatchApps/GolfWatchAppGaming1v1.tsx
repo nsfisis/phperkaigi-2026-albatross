@@ -7,6 +7,7 @@ import {
 	latestGameStatesAtom,
 } from "../../states/watch";
 import type { PlayerProfile } from "../../types/PlayerProfile";
+import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import FoldableBorderedContainerWithCaption from "../FoldableBorderedContainerWithCaption";
 import CodeBlock from "../Gaming/CodeBlock";
 import LeftTime from "../Gaming/LeftTime";
@@ -24,6 +25,7 @@ type Props = {
 	playerProfileB: PlayerProfile | null;
 	problemTitle: string;
 	problemDescription: string;
+	problemLanguage: SupportedLanguage;
 	sampleCode: string;
 };
 
@@ -33,6 +35,7 @@ export default function GolfWatchAppGaming1v1({
 	playerProfileB,
 	problemTitle,
 	problemDescription,
+	problemLanguage,
 	sampleCode,
 }: Props) {
 	const gameStateKind = useAtomValue(gameStateKindAtom);
@@ -50,8 +53,8 @@ export default function GolfWatchAppGaming1v1({
 	const scoreB = stateB?.score ?? null;
 	const statusB = stateB?.status ?? "none";
 
-	const codeSizeA = calcCodeSize(codeA);
-	const codeSizeB = calcCodeSize(codeB);
+	const codeSizeA = calcCodeSize(codeA, problemLanguage);
+	const codeSizeB = calcCodeSize(codeB, problemLanguage);
 
 	const gameResultKind = checkGameResultKind(gameStateKind, stateA, stateB);
 
@@ -125,15 +128,16 @@ export default function GolfWatchAppGaming1v1({
 					<FoldableBorderedContainerWithCaption
 						caption={`コードサイズ: ${codeSizeA}`}
 					>
-						<CodeBlock code={codeA} language="php" />
+						<CodeBlock code={codeA} language={problemLanguage} />
 					</FoldableBorderedContainerWithCaption>
 				</TitledColumn>
 				<TitledColumn title={problemTitle} className="order-1 md:order-2">
 					<ProblemColumnContent
 						description={problemDescription}
+						language={problemLanguage}
 						sampleCode={sampleCode}
 					/>
-					<RankingTable />
+					<RankingTable problemLanguage={problemLanguage} />
 				</TitledColumn>
 				<TitledColumn
 					title={<SubmitStatusLabel status={statusB} />}
@@ -142,7 +146,7 @@ export default function GolfWatchAppGaming1v1({
 					<FoldableBorderedContainerWithCaption
 						caption={`コードサイズ: ${codeSizeB}`}
 					>
-						<CodeBlock code={codeB} language="php" />
+						<CodeBlock code={codeB} language={problemLanguage} />
 					</FoldableBorderedContainerWithCaption>
 				</TitledColumn>
 			</ThreeColumnLayout>

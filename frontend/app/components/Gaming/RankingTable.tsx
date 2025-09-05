@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import React from "react";
 import { rankingAtom } from "../../states/watch";
+import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import CodePopover from "./CodePopover";
 
 function TableHeaderCell({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,11 @@ function formatUnixTimestamp(timestamp: number) {
 	return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export default function RankingTable() {
+type Props = {
+	problemLanguage: SupportedLanguage;
+};
+
+export default function RankingTable({ problemLanguage }: Props) {
 	const ranking = useAtomValue(rankingAtom);
 
 	return (
@@ -57,7 +62,9 @@ export default function RankingTable() {
 								{formatUnixTimestamp(entry.submitted_at)}
 							</TableBodyCell>
 							<TableBodyCell>
-								{entry.code && <CodePopover code={entry.code} />}
+								{entry.code && (
+									<CodePopover code={entry.code} language={problemLanguage} />
+								)}
 							</TableBodyCell>
 						</tr>
 					))}
