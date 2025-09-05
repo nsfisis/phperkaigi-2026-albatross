@@ -98,10 +98,15 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_2")
 	}
+	game3, err := strconv.Atoi(c.QueryParam("game_3"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_3")
+	}
 
 	rows, err := h.q.GetQualifyingRanking(c.Request().Context(), db.GetQualifyingRankingParams{
 		GameID:   int32(game1),
 		GameID_2: int32(game2),
+		GameID_3: int32(game3),
 	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -115,9 +120,11 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 			"UserLabel":    r.UserLabel,
 			"Score1":       r.CodeSize1,
 			"Score2":       r.CodeSize2,
+			"Score3":       r.CodeSize3,
 			"TotalScore":   r.TotalCodeSize,
 			"SubmittedAt1": r.SubmittedAt1.Time.In(jst).Format("2006-01-02T15:04"),
 			"SubmittedAt2": r.SubmittedAt2.Time.In(jst).Format("2006-01-02T15:04"),
+			"SubmittedAt3": r.SubmittedAt3.Time.In(jst).Format("2006-01-02T15:04"),
 		}
 	}
 	return c.Render(http.StatusOK, "online_qualifying_ranking", echo.Map{

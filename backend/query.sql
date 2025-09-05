@@ -146,15 +146,19 @@ SELECT
     u.label AS user_label,
     s1.code_size AS code_size_1,
     s2.code_size AS code_size_2,
-    (s1.code_size + s2.code_size) AS total_code_size,
+    s3.code_size AS code_size_3,
+    (COALESCE(s1.code_size, 0) + COALESCE(s2.code_size, 0) + COALESCE(s3.code_size, 0)) AS total_code_size,
     s1.created_at AS submitted_at_1,
-    s2.created_at AS submitted_at_2
+    s2.created_at AS submitted_at_2,
+    s3.created_at AS submitted_at_3
 FROM game_states gs1
 JOIN submissions s1 ON gs1.best_score_submission_id = s1.submission_id
 JOIN game_states gs2 ON gs1.user_id = gs2.user_id
 JOIN submissions s2 ON gs2.best_score_submission_id = s2.submission_id
+JOIN game_states gs3 ON gs1.user_id = gs3.user_id
+JOIN submissions s3 ON gs3.best_score_submission_id = s3.submission_id
 JOIN users u ON gs1.user_id = u.user_id
-WHERE gs1.game_id = $1 AND gs2.game_id = $2
+WHERE gs1.game_id = $1 AND gs2.game_id = $2 AND gs3.game_id = $3
 ORDER BY total_code_size ASC;
 
 -- name: UpdateCode :exec

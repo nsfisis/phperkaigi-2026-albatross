@@ -12,6 +12,7 @@
       <th scope="col">プレイヤー</th>
       <th scope="col">スコア1</th>
       <th scope="col">スコア2</th>
+      <th scope="col">スコア3</th>
       <th scope="col">合計スコア</th>
       <th scope="col">提出時刻1</th>
       <th scope="col">提出時刻2</th>
@@ -24,6 +25,7 @@
         <td>{{ .Username }}{{ if .UserLabel }} ({{ .UserLabel }}){{ end }}</td>
         <td>{{ .Score1 }}</td>
         <td>{{ .Score2 }}</td>
+        <td>{{ .Score3 }}</td>
         <td>{{ .TotalScore }}</td>
         <td>{{ .SubmittedAt1 }}</td>
         <td>{{ .SubmittedAt2 }}</td>
