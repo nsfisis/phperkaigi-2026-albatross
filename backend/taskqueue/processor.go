@@ -39,7 +39,7 @@ func (p *processor) doProcessTaskRunTestcase(
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal failed: %v", err)
 	}
-	req, err := http.NewRequest("POST", "http://worker:80/exec", bytes.NewBuffer(reqJSON))
+	req, err := http.NewRequest("POST", "http://worker-php:80/exec", bytes.NewBuffer(reqJSON))
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest failed: %v", err)
 	}

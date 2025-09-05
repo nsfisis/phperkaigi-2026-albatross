@@ -71,9 +71,9 @@ services:
       retries: 5
     restart: always
 
-  worker:
+  worker-php:
     build:
-      context: ./worker
+      context: ./worker/php
     expose:
       - 80
     env_file: [.env]
