@@ -1,0 +1,36 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/problems">Problems</a>
+{{ end }}
+
+{{ define "content" }}
+<form method="post">
+  <div>
+    <label>Problem ID</label>
+    <input type="text" name="problem_id" value="{{ .Problem.ProblemID }}" readonly required>
+  </div>
+  <div>
+    <label>Title</label>
+    <input type="text" name="title" value="{{ .Problem.Title }}" required>
+  </div>
+  <div>
+    <label>Description</label>
+    <textarea name="description" rows="10" required>{{ .Problem.Description }}</textarea>
+  </div>
+  <div>
+    <label>Language</label>
+    <select name="language" required>
+      <option value="php"{{ if eq .Problem.Language "php" }} selected{{ end }}>PHP</option>
+      <option value="swift"{{ if eq .Problem.Language "swift" }} selected{{ end }}>Swift</option>
+    </select>
+  </div>
+  <div>
+    <label>Sample Code</label>
+    <textarea name="sample_code" rows="15" required>{{ .Problem.SampleCode }}</textarea>
+  </div>
+  <div>
+    <button type="submit">Save</button>
+  </div>
+</form>
+{{ end }}

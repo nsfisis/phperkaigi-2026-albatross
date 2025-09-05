@@ -88,7 +88,7 @@ func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth
 				ProblemID:   int(row.ProblemID),
 				Title:       row.Title,
 				Description: row.Description,
-				Language:    ProblemLanguage(*row.Language),
+				Language:    ProblemLanguage(row.Language),
 				SampleCode:  row.SampleCode,
 			},
 		}
@@ -167,7 +167,7 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, _ *
 			ProblemID:   int(row.ProblemID),
 			Title:       row.Title,
 			Description: row.Description,
-			Language:    ProblemLanguage(*row.Language),
+			Language:    ProblemLanguage(row.Language),
 			SampleCode:  row.SampleCode,
 		},
 		MainPlayers: mainPlayers,
@@ -305,7 +305,7 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	language := *gameRow.Language
+	language := gameRow.Language
 	codeSize := h.hub.CalcCodeSize(code, language)
 	// TODO: check if the game is running
 	// TODO: transaction

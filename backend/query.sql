@@ -194,3 +194,26 @@ SELECT submission_id FROM submissions;
 
 -- name: ListGameStateIDs :many
 SELECT game_id, user_id FROM game_states;
+
+-- name: ListProblems :many
+SELECT * FROM problems
+ORDER BY problem_id;
+
+-- name: GetProblemByID :one
+SELECT * FROM problems
+WHERE problem_id = $1
+LIMIT 1;
+
+-- name: CreateProblem :one
+INSERT INTO problems (title, description, language, sample_code)
+VALUES ($1, $2, $3, $4)
+RETURNING problem_id;
+
+-- name: UpdateProblem :exec
+UPDATE problems
+SET
+    title = $2,
+    description = $3,
+    language = $4,
+    sample_code = $5
+WHERE problem_id = $1;

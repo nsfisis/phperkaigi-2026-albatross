@@ -50,6 +50,31 @@ func (q *Queries) AggregateTestcaseResults(ctx context.Context, submissionID int
 	return status, err
 }
 
+const createProblem = `-- name: CreateProblem :one
+INSERT INTO problems (title, description, language, sample_code)
+VALUES ($1, $2, $3, $4)
+RETURNING problem_id
+`
+
+type CreateProblemParams struct {
+	Title       string
+	Description string
+	Language    string
+	SampleCode  string
+}
+
+func (q *Queries) CreateProblem(ctx context.Context, arg CreateProblemParams) (int32, error) {
+	row := q.db.QueryRow(ctx, createProblem,
+		arg.Title,
+		arg.Description,
+		arg.Language,
+		arg.SampleCode,
+	)
+	var problem_id int32
+	err := row.Scan(&problem_id)
+	return problem_id, err
+}
+
 const createSubmission = `-- name: CreateSubmission :one
 INSERT INTO submissions (game_id, user_id, code, code_size, status)
 VALUES ($1, $2, $3, $4, 'running')
@@ -146,7 +171,7 @@ type GetGameByIDRow struct {
 	ProblemID_2     int32
 	Title           string
 	Description     string
-	Language        *string
+	Language        string
 	SampleCode      string
 }
 
@@ -275,6 +300,25 @@ func (q *Queries) GetLatestStatesOfMainPlayers(ctx context.Context, gameID int32
 		return nil, err
 	}
 	return items, nil
+}
+
+const getProblemByID = `-- name: GetProblemByID :one
+SELECT problem_id, title, description, language, sample_code FROM problems
+WHERE problem_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetProblemByID(ctx context.Context, problemID int32) (Problem, error) {
+	row := q.db.QueryRow(ctx, getProblemByID, problemID)
+	var i Problem
+	err := row.Scan(
+		&i.ProblemID,
+		&i.Title,
+		&i.Description,
+		&i.Language,
+		&i.SampleCode,
+	)
+	return i, err
 }
 
 const getQualifyingRanking = `-- name: GetQualifyingRanking :many
@@ -576,6 +620,37 @@ func (q *Queries) ListMainPlayers(ctx context.Context, dollar_1 []int32) ([]List
 	return items, nil
 }
 
+const listProblems = `-- name: ListProblems :many
+SELECT problem_id, title, description, language, sample_code FROM problems
+ORDER BY problem_id
+`
+
+func (q *Queries) ListProblems(ctx context.Context) ([]Problem, error) {
+	rows, err := q.db.Query(ctx, listProblems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Problem
+	for rows.Next() {
+		var i Problem
+		if err := rows.Scan(
+			&i.ProblemID,
+			&i.Title,
+			&i.Description,
+			&i.Language,
+			&i.SampleCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublicGames = `-- name: ListPublicGames :many
 SELECT game_id, game_type, is_public, display_name, duration_seconds, created_at, started_at, games.problem_id, problems.problem_id, title, description, language, sample_code FROM games
 JOIN problems ON games.problem_id = problems.problem_id
@@ -595,7 +670,7 @@ type ListPublicGamesRow struct {
 	ProblemID_2     int32
 	Title           string
 	Description     string
-	Language        *string
+	Language        string
 	SampleCode      string
 }
 
@@ -865,6 +940,35 @@ type UpdateGameStateStatusParams struct {
 
 func (q *Queries) UpdateGameStateStatus(ctx context.Context, arg UpdateGameStateStatusParams) error {
 	_, err := q.db.Exec(ctx, updateGameStateStatus, arg.GameID, arg.UserID, arg.Status)
+	return err
+}
+
+const updateProblem = `-- name: UpdateProblem :exec
+UPDATE problems
+SET
+    title = $2,
+    description = $3,
+    language = $4,
+    sample_code = $5
+WHERE problem_id = $1
+`
+
+type UpdateProblemParams struct {
+	ProblemID   int32
+	Title       string
+	Description string
+	Language    string
+	SampleCode  string
+}
+
+func (q *Queries) UpdateProblem(ctx context.Context, arg UpdateProblemParams) error {
+	_, err := q.db.Exec(ctx, updateProblem,
+		arg.ProblemID,
+		arg.Title,
+		arg.Description,
+		arg.Language,
+		arg.SampleCode,
+	)
 	return err
 }
 

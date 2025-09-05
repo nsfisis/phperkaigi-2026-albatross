@@ -36,7 +36,7 @@ type Problem struct {
 	ProblemID   int32
 	Title       string
 	Description string
-	Language    *string
+	Language    string
 	SampleCode  string
 }
 

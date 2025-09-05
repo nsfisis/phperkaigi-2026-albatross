@@ -53,16 +53,24 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.Use(h.newAdminMiddleware())
 
 	g.GET("/dashboard", h.getDashboard)
+
+	g.GET("/online-qualifying-ranking", h.getOnlineQualifyingRanking)
+
 	g.GET("/users", h.getUsers)
 	g.GET("/users/:userID", h.getUserEdit)
 	g.POST("/users/:userID", h.postUserEdit)
 	g.POST("/users/:userID/fetch-icon", h.postUserFetchIcon)
+
 	g.GET("/games", h.getGames)
 	g.GET("/games/:gameID", h.getGameEdit)
 	g.POST("/games/:gameID", h.postGameEdit)
 	g.POST("/games/:gameID/start", h.postGameStart)
-	g.GET("/online-qualifying-ranking", h.getOnlineQualifyingRanking)
-	g.POST("/fix", h.postFix)
+
+	g.GET("/problems", h.getProblems)
+	g.GET("/problems/new", h.getProblemNew)
+	g.POST("/problems/new", h.postProblemNew)
+	g.GET("/problems/:problemID", h.getProblemEdit)
+	g.POST("/problems/:problemID", h.postProblemEdit)
 }
 
 func (h *Handler) getDashboard(c echo.Context) error {
@@ -428,39 +436,101 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 	})
 }
 
-func (h *Handler) postFix(c echo.Context) error {
-	rows, err := h.q.ListSubmissionIDs(c.Request().Context())
+func (h *Handler) getProblems(c echo.Context) error {
+	rows, err := h.q.ListProblems(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	for _, submissionID := range rows {
-		as, err := h.q.AggregateTestcaseResults(c.Request().Context(), submissionID)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		err = h.q.UpdateSubmissionStatus(c.Request().Context(), db.UpdateSubmissionStatusParams{
-			SubmissionID: submissionID,
-			Status:       as,
-		})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	problems := make([]echo.Map, len(rows))
+	for i, p := range rows {
+		problems[i] = echo.Map{
+			"ProblemID":   p.ProblemID,
+			"Title":       p.Title,
+			"Description": p.Description,
+			"Language":    p.Language,
 		}
 	}
 
-	rows2, err := h.q.ListGameStateIDs(c.Request().Context())
+	return c.Render(http.StatusOK, "problems", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Problems",
+		"Problems": problems,
+	})
+}
+
+func (h *Handler) getProblemNew(c echo.Context) error {
+	return c.Render(http.StatusOK, "problem_new", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "New Problem",
+	})
+}
+
+func (h *Handler) postProblemNew(c echo.Context) error {
+	title := c.FormValue("title")
+	description := c.FormValue("description")
+	language := c.FormValue("language")
+	sampleCode := c.FormValue("sample_code")
+
+	_, err := h.q.CreateProblem(c.Request().Context(), db.CreateProblemParams{
+		Title:       title,
+		Description: description,
+		Language:    language,
+		SampleCode:  sampleCode,
+	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	for _, r := range rows2 {
-		gameID := r.GameID
-		userID := r.UserID
-		err := h.q.SyncGameStateBestScoreSubmission(c.Request().Context(), db.SyncGameStateBestScoreSubmissionParams{
-			GameID: gameID,
-			UserID: userID,
-		})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems")
+}
+
+func (h *Handler) getProblemEdit(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem id")
 	}
-	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/dashboard")
+	row, err := h.q.GetProblemByID(c.Request().Context(), int32(problemID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Render(http.StatusOK, "problem_edit", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Problem Edit",
+		"Problem": echo.Map{
+			"ProblemID":   row.ProblemID,
+			"Title":       row.Title,
+			"Description": row.Description,
+			"Language":    row.Language,
+			"SampleCode":  row.SampleCode,
+		},
+	})
+}
+
+func (h *Handler) postProblemEdit(c echo.Context) error {
+	problemID, err := strconv.Atoi(c.Param("problemID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid problem_id")
+	}
+
+	title := c.FormValue("title")
+	description := c.FormValue("description")
+	language := c.FormValue("language")
+	sampleCode := c.FormValue("sample_code")
+
+	err = h.q.UpdateProblem(c.Request().Context(), db.UpdateProblemParams{
+		ProblemID:   int32(problemID),
+		Title:       title,
+		Description: description,
+		Language:    language,
+		SampleCode:  sampleCode,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems")
 }
