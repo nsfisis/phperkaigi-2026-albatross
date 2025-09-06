@@ -16,7 +16,7 @@ up:
 
 .PHONY: down
 down:
-	${DOCKER_COMPOSE} down
+	${DOCKER_COMPOSE} down --remove-orphans
 
 .PHONY: logs
 logs:
@@ -45,7 +45,7 @@ sqldef-dryrun: down
 .PHONY: asynq
 asynq:
 	${DOCKER_COMPOSE} up --wait db
-	${DOCKER_COMPOSE} run tools go run github.com/hibiken/asynq/tools/asynq dash
+	${DOCKER_COMPOSE} run tools go run github.com/hibiken/asynq/tools/asynq --uri task-db:6379 dash
 
 .PHONY: sqldef
 sqldef: down
