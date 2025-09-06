@@ -373,6 +373,7 @@ components:
         - success
         - wrong_answer
         - timeout
+        - compile_error
         - runtime_error
         - internal_error
     LatestGameState:

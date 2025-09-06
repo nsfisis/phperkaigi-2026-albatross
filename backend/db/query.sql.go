@@ -35,6 +35,7 @@ SELECT
         THEN 'running'
         WHEN COUNT(CASE WHEN r.status = 'internal_error' THEN 1 END) > 0 THEN 'internal_error'
         WHEN COUNT(CASE WHEN r.status = 'timeout'        THEN 1 END) > 0 THEN 'timeout'
+        WHEN COUNT(CASE WHEN r.status = 'compile_error'  THEN 1 END) > 0 THEN 'compile_error'
         WHEN COUNT(CASE WHEN r.status = 'runtime_error'  THEN 1 END) > 0 THEN 'runtime_error'
         WHEN COUNT(CASE WHEN r.status = 'wrong_answer'   THEN 1 END) > 0 THEN 'wrong_answer'
         ELSE 'success'

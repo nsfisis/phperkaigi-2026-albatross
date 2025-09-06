@@ -16,6 +16,8 @@ export default function SubmitStatusLabel({ status }: Props) {
 			return "テスト失敗";
 		case "timeout":
 			return "時間切れ";
+		case "compile_error":
+			return "コンパイルエラー";
 		case "runtime_error":
 			return "実行時エラー";
 		case "internal_error":

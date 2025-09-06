@@ -200,7 +200,7 @@ export interface components {
          * @example success
          * @enum {string}
          */
-        ExecutionStatus: "none" | "running" | "success" | "wrong_answer" | "timeout" | "runtime_error" | "internal_error";
+        ExecutionStatus: "none" | "running" | "success" | "wrong_answer" | "timeout" | "compile_error" | "runtime_error" | "internal_error";
         LatestGameState: {
             /** @example echo 'hello world'; */
             code: string;
