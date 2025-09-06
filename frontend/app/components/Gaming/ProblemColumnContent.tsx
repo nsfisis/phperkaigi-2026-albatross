@@ -48,7 +48,7 @@ function SwiftNotice() {
 					同じスコアを出した場合、より提出が早かったプレイヤーの勝ちとなります。
 				</p>
 				<p>
-					この環境の PHP バージョンは{" "}
+					この環境の Swift バージョンは{" "}
 					<strong className="font-bold">6.1.2</strong> です。
 					ファイルアクセスやネットワークアクセスはできません。
 				</p>
