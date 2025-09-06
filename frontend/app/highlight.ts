@@ -8,7 +8,7 @@ export type { BundledLanguage };
 // https://shiki.matsu.io/packages/next
 export async function highlight(code: string, lang: BundledLanguage) {
 	const out = await codeToHast(code.trimEnd(), {
-		lang,
+		lang: lang === "swift" ? "text" : lang,
 		theme: "github-light",
 	});
 
