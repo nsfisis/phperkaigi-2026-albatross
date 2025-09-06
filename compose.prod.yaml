@@ -81,7 +81,7 @@ services:
 
   worker-swift:
     build:
-      context: ./worker/php
+      context: ./worker/swift
     expose:
       - 80
     env_file: [.env]
