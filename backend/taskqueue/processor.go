@@ -36,7 +36,7 @@ func (p *processor) doProcessTaskRunTestcase(
 		Code:        payload.Code,
 		CodeHash:    calcCodeHash(payload.Code),
 		Stdin:       payload.Stdin,
-		MaxDuration: 5000,
+		MaxDuration: 30 * 1000,
 	}
 	reqJSON, err := json.Marshal(reqData)
 	if err != nil {
