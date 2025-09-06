@@ -141,8 +141,13 @@ func (hub *Hub) processTaskResultRunTestcase(
 	return nil
 }
 
+func normalizeTestcaseResultOutput(s string) string {
+	re := regexp.MustCompile(`\r\n|\r`)
+	return re.ReplaceAllString(strings.TrimSpace(s), "\n")
+}
+
 func isTestcaseResultCorrect(expectedStdout, actualStdout string) bool {
-	expectedStdout = strings.TrimSpace(expectedStdout)
-	actualStdout = strings.TrimSpace(actualStdout)
+	expectedStdout = normalizeTestcaseResultOutput(expectedStdout)
+	actualStdout = normalizeTestcaseResultOutput(actualStdout)
 	return actualStdout == expectedStdout
 }
