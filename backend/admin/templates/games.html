@@ -11,15 +11,15 @@
 <ul>
   {{ range .Games }}
     <li>
-      <a href="{{ $.BasePath }}/admin/games/{{ .GameID }}">
+      <a href="{{ $.BasePath }}admin/games/{{ .GameID }}">
         {{ .DisplayName }} (id={{ .GameID }} type={{ .GameType }} {{ if not .IsPublic }}private{{ end }})
       </a>
       <ul>
         {{ if .IsPublic }}
-          <li><a href="{{ $.BasePath }}/golf/{{ .GameID }}/play">Play</a></li>
+          <li><a href="{{ $.BasePath }}golf/{{ .GameID }}/play">Play</a></li>
         {{ end }}
         {{ if .IsPublic }}
-          <li><a href="{{ $.BasePath }}/golf/{{ .GameID }}/watch">Watch</a></li>
+          <li><a href="{{ $.BasePath }}golf/{{ .GameID }}/watch">Watch</a></li>
         {{ end }}
       </ul>
     </li>
