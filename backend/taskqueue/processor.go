@@ -34,7 +34,7 @@ func (p *processor) doProcessTaskRunTestcase(
 ) (*TaskResultRunTestcase, error) {
 	reqData := testrunRequestData{
 		Code:        payload.Code,
-		CodeHash:    calcCodeHash(payload.Code),
+		CodeHash:    calcCodeHash(payload.Code, payload.TestcaseID),
 		Stdin:       payload.Stdin,
 		MaxDuration: 30 * 1000,
 	}
@@ -68,6 +68,7 @@ func (p *processor) doProcessTaskRunTestcase(
 	}, nil
 }
 
-func calcCodeHash(code string) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(code)))
+func calcCodeHash(code string, testcaseID int) string {
+	buf := make([]byte, 0, len(code)+10)
+	return fmt.Sprintf("%x", md5.Sum(fmt.Appendf(buf, "%s@%d", code, testcaseID)))
 }
