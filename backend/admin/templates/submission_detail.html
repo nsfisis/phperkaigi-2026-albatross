@@ -1,0 +1,37 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> |
+<a href="{{ .BasePath }}admin/games">Games</a> |
+<a href="{{ .BasePath }}admin/games/{{ .GameID }}">Game {{ .GameID }}</a> |
+<a href="{{ .BasePath }}admin/games/{{ .GameID }}/submissions">Submissions</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>Submission {{ .Submission.SubmissionID }}</h2>
+
+<h3>Basics</h3>
+<ul>
+  <li>User: {{ .Submission.UserID }}</li>
+  <li>Status: {{ .Submission.Status }}</li>
+  <li>Code Size: {{ .Submission.CodeSize }}</li>
+  <li>Created At: {{ .Submission.CreatedAt }}</li>
+</ul>
+
+<h3>Code</h3>
+<pre><code>{{ .Submission.Code }}</code></pre>
+
+<h3>Testcase Results</h3>
+{{ range .TestcaseResults }}
+  <h4>Testcase Result {{ .TestcaseResultID }}</h4>
+  <ul>
+    <li>Testcase ID: {{ .TestcaseID }}</li>
+    <li>Status: {{ .Status }}</li>
+    <li>Created At: {{ .CreatedAt }}</li>
+  </ul>
+  <h5>Stdout</h5>
+  <pre><code>{{ .Stdout }}</code></pre>
+  <h5>Stderr</h5>
+  <pre><code>{{ .Stderr }}</code></pre>
+{{ end }}
+{{ end }}

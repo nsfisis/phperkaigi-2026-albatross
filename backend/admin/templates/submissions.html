@@ -1,0 +1,35 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> |
+<a href="{{ .BasePath }}admin/games">Games</a> |
+<a href="{{ .BasePath }}admin/games/{{ .GameID }}">Game {{ .GameID }}</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>Submissions for Game {{ .GameID }}</h2>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>User</th>
+      <th>Status</th>
+      <th>Code Size</th>
+      <th>Created At</th>
+      <th>View</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{ range .Submissions }}
+      <tr>
+        <td>{{ .SubmissionID }}</td>
+        <td>{{ .UserID }}</td>
+        <td>{{ .Status }}</td>
+        <td>{{ .CodeSize }}</td>
+        <td>{{ .CreatedAt }}</td>
+        <td><a href="{{ $.BasePath }}admin/games/{{ $.GameID }}/submissions/{{ .SubmissionID }}">View</a></td>
+      </tr>
+    {{ end }}
+  </tbody>
+</table>
+{{ end }}

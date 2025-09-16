@@ -68,6 +68,8 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.GET("/games/:gameID", h.getGameEdit)
 	g.POST("/games/:gameID", h.postGameEdit)
 	g.POST("/games/:gameID/start", h.postGameStart)
+	g.GET("/games/:gameID/submissions", h.getSubmissions)
+	g.GET("/games/:gameID/submissions/:submissionID", h.getSubmissionDetail)
 
 	g.GET("/problems", h.getProblems)
 	g.GET("/problems/new", h.getProblemNew)
@@ -574,6 +576,87 @@ func (h *Handler) postGameStart(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
+}
+
+func (h *Handler) getSubmissions(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+	}
+
+	submissions, err := h.q.GetSubmissionsByGameID(c.Request().Context(), int32(gameID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	entries := make([]echo.Map, len(submissions))
+	for i, r := range submissions {
+		entries[i] = echo.Map{
+			"SubmissionID": r.SubmissionID,
+			"UserID":       r.UserID,
+			"Status":       r.Status,
+			"CodeSize":     r.CodeSize,
+			"CreatedAt":    r.CreatedAt.Time.In(jst).Format("2006-01-02T15:04"),
+		}
+	}
+
+	return c.Render(http.StatusOK, "submissions", echo.Map{
+		"BasePath":    h.conf.BasePath,
+		"Title":       "Submissions",
+		"GameID":      gameID,
+		"Submissions": entries,
+	})
+}
+
+func (h *Handler) getSubmissionDetail(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+	}
+
+	submissionID, err := strconv.Atoi(c.Param("submissionID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid submission_id")
+	}
+
+	submission, err := h.q.GetSubmissionByID(c.Request().Context(), int32(submissionID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	testcaseResultRows, err := h.q.GetTestcaseResultsBySubmissionID(c.Request().Context(), int32(submissionID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	testcaseResults := make([]echo.Map, len(testcaseResultRows))
+	for i, r := range testcaseResultRows {
+		testcaseResults[i] = echo.Map{
+			"TestcaseResultID": r.TestcaseResultID,
+			"TestcaseID":       r.TestcaseID,
+			"Status":           r.Status,
+			"CreatedAt":        r.CreatedAt.Time.In(jst).Format("2006-01-02T15:04"),
+			"Stdout":           r.Stdout,
+			"Stderr":           r.Stderr,
+		}
+	}
+
+	return c.Render(http.StatusOK, "submission_detail", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Submission Detail",
+		"GameID":   gameID,
+		"Submission": echo.Map{
+			"SubmissionID": submission.SubmissionID,
+			"UserID":       submission.UserID,
+			"Status":       submission.Status,
+			"CodeSize":     submission.CodeSize,
+			"CreatedAt":    submission.CreatedAt.Time.In(jst).Format("2006-01-02T15:04"),
+			"Code":         submission.Code,
+		},
+		"TestcaseResults": testcaseResults,
+	})
 }
 
 func (h *Handler) getProblems(c echo.Context) error {

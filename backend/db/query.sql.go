@@ -500,6 +500,63 @@ func (q *Queries) GetRanking(ctx context.Context, gameID int32) ([]GetRankingRow
 	return items, nil
 }
 
+const getSubmissionByID = `-- name: GetSubmissionByID :one
+SELECT submission_id, game_id, user_id, code, code_size, status, created_at
+FROM submissions
+WHERE submission_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetSubmissionByID(ctx context.Context, submissionID int32) (Submission, error) {
+	row := q.db.QueryRow(ctx, getSubmissionByID, submissionID)
+	var i Submission
+	err := row.Scan(
+		&i.SubmissionID,
+		&i.GameID,
+		&i.UserID,
+		&i.Code,
+		&i.CodeSize,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSubmissionsByGameID = `-- name: GetSubmissionsByGameID :many
+SELECT submission_id, game_id, user_id, code, code_size, status, created_at
+FROM submissions
+WHERE game_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]Submission, error) {
+	rows, err := q.db.Query(ctx, getSubmissionsByGameID, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Submission
+	for rows.Next() {
+		var i Submission
+		if err := rows.Scan(
+			&i.SubmissionID,
+			&i.GameID,
+			&i.UserID,
+			&i.Code,
+			&i.CodeSize,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTestcaseByID = `-- name: GetTestcaseByID :one
 SELECT testcase_id, problem_id, stdin, stdout FROM testcases
 WHERE testcase_id = $1
@@ -516,6 +573,41 @@ func (q *Queries) GetTestcaseByID(ctx context.Context, testcaseID int32) (Testca
 		&i.Stdout,
 	)
 	return i, err
+}
+
+const getTestcaseResultsBySubmissionID = `-- name: GetTestcaseResultsBySubmissionID :many
+SELECT testcase_result_id, submission_id, testcase_id, status, stdout, stderr, created_at
+FROM testcase_results
+WHERE submission_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) GetTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) ([]TestcaseResult, error) {
+	rows, err := q.db.Query(ctx, getTestcaseResultsBySubmissionID, submissionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TestcaseResult
+	for rows.Next() {
+		var i TestcaseResult
+		if err := rows.Scan(
+			&i.TestcaseResultID,
+			&i.SubmissionID,
+			&i.TestcaseID,
+			&i.Status,
+			&i.Stdout,
+			&i.Stderr,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserAuthByUsername = `-- name: GetUserAuthByUsername :one

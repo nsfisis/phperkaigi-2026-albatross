@@ -21,6 +21,7 @@
         {{ if .IsPublic }}
           <li><a href="{{ $.BasePath }}golf/{{ .GameID }}/watch">Watch</a></li>
         {{ end }}
+        <li><a href="{{ $.BasePath }}admin/games/{{ .GameID }}/submissions">Submissions</a></li>
       </ul>
     </li>
   {{ end }}

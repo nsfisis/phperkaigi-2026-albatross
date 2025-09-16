@@ -66,4 +66,7 @@
     <button type="submit" formaction="{{ .BasePath }}admin/games/{{ .Game.GameID }}/start">Start</button>
   </div>
 </form>
+<div>
+  <a href="{{ .BasePath }}admin/games/{{ .Game.GameID }}/submissions">View Submissions</a>
+</div>
 {{ end }}
