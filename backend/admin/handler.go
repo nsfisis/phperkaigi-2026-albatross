@@ -542,6 +542,24 @@ func (h *Handler) postGameStart(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game id")
 	}
 
+	game, err := h.q.GetGameByID(c.Request().Context(), int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Game not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	testcases, err := h.q.ListTestcasesByProblemID(c.Request().Context(), game.ProblemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusBadRequest, "No testcases")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if len(testcases) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "No testcases")
+	}
+
 	startedAt := time.Now().Add(10 * time.Second)
 
 	err = h.q.UpdateGameStartedAt(c.Request().Context(), db.UpdateGameStartedAtParams{
