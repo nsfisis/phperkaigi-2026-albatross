@@ -97,6 +97,21 @@ type RankingEntry struct {
 	SubmittedAt int64                     `json:"submitted_at"`
 }
 
+// Tournament defines model for Tournament.
+type Tournament struct {
+	Matches []TournamentMatch `json:"matches"`
+}
+
+// TournamentMatch defines model for TournamentMatch.
+type TournamentMatch struct {
+	GameID       int   `json:"game_id"`
+	Player1      *User `json:"player1,omitempty"`
+	Player1Score *int  `json:"player1_score,omitempty"`
+	Player2      *User `json:"player2,omitempty"`
+	Player2Score *int  `json:"player2_score,omitempty"`
+	Winner       *int  `json:"winner,omitempty"`
+}
+
 // User defines model for User.
 type User struct {
 	DisplayName string                    `json:"display_name"`
@@ -176,6 +191,16 @@ type PostLoginJSONBody struct {
 	Username string `json:"username"`
 }
 
+// GetTournamentParams defines parameters for GetTournament.
+type GetTournamentParams struct {
+	Game1         int                 `form:"game1" json:"game1"`
+	Game2         int                 `form:"game2" json:"game2"`
+	Game3         int                 `form:"game3" json:"game3"`
+	Game4         int                 `form:"game4" json:"game4"`
+	Game5         int                 `form:"game5" json:"game5"`
+	Authorization HeaderAuthorization `json:"Authorization"`
+}
+
 // PostGamePlayCodeJSONRequestBody defines body for PostGamePlayCode for application/json ContentType.
 type PostGamePlayCodeJSONRequestBody PostGamePlayCodeJSONBody
 
@@ -211,6 +236,9 @@ type ServerInterface interface {
 	// User login
 	// (POST /login)
 	PostLogin(ctx echo.Context) error
+	// Get tournament bracket data
+	// (GET /tournament)
+	GetTournament(ctx echo.Context, params GetTournamentParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -486,6 +514,71 @@ func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 	return err
 }
 
+// GetTournament converts echo context to params.
+func (w *ServerInterfaceWrapper) GetTournament(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTournamentParams
+	// ------------- Required query parameter "game1" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "game1", ctx.QueryParams(), &params.Game1)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game1: %s", err))
+	}
+
+	// ------------- Required query parameter "game2" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "game2", ctx.QueryParams(), &params.Game2)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game2: %s", err))
+	}
+
+	// ------------- Required query parameter "game3" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "game3", ctx.QueryParams(), &params.Game3)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game3: %s", err))
+	}
+
+	// ------------- Required query parameter "game4" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "game4", ctx.QueryParams(), &params.Game4)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game4: %s", err))
+	}
+
+	// ------------- Required query parameter "game5" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "game5", ctx.QueryParams(), &params.Game5)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game5: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "Authorization" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
+		var Authorization HeaderAuthorization
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
+		}
+
+		params.Authorization = Authorization
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetTournament(ctx, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -522,6 +615,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/games/:game_id/watch/latest_states", wrapper.GetGameWatchLatestStates)
 	router.GET(baseURL+"/games/:game_id/watch/ranking", wrapper.GetGameWatchRanking)
 	router.POST(baseURL+"/login", wrapper.PostLogin)
+	router.GET(baseURL+"/tournament", wrapper.GetTournament)
 
 }
 
@@ -876,6 +970,52 @@ func (response PostLogin401JSONResponse) VisitPostLoginResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetTournamentRequestObject struct {
+	Params GetTournamentParams
+}
+
+type GetTournamentResponseObject interface {
+	VisitGetTournamentResponse(w http.ResponseWriter) error
+}
+
+type GetTournament200JSONResponse struct {
+	Tournament Tournament `json:"tournament"`
+}
+
+func (response GetTournament200JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTournament401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetTournament401JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTournament403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetTournament403JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTournament404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTournament404JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// List games
@@ -902,6 +1042,9 @@ type StrictServerInterface interface {
 	// User login
 	// (POST /login)
 	PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error)
+	// Get tournament bracket data
+	// (GET /tournament)
+	GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -1138,34 +1281,61 @@ func (sh *strictHandler) PostLogin(ctx echo.Context) error {
 	return nil
 }
 
+// GetTournament operation middleware
+func (sh *strictHandler) GetTournament(ctx echo.Context, params GetTournamentParams) error {
+	var request GetTournamentRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTournament(ctx.Request().Context(), request.(GetTournamentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTournament")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetTournamentResponseObject); ok {
+		return validResponse.VisitGetTournamentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"DgAA//9Pz5q5YB8AAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

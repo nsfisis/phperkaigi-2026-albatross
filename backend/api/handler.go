@@ -334,6 +334,100 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	return PostGamePlaySubmit200Response{}, nil
 }
 
+func (h *Handler) GetTournament(ctx context.Context, request GetTournamentRequestObject, _ *auth.JWTClaims) (GetTournamentResponseObject, error) {
+	gameIDs := []int32{
+		int32(request.Params.Game1),
+		int32(request.Params.Game2),
+		int32(request.Params.Game3),
+		int32(request.Params.Game4),
+		int32(request.Params.Game5),
+	}
+
+	matches := make([]TournamentMatch, 0, 5)
+
+	for _, gameID := range gameIDs {
+		gameRow, err := h.q.GetGameByID(ctx, gameID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+
+		playerRows, err := h.q.ListMainPlayers(ctx, []int32{gameID})
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+
+		var player1, player2 *User
+		if len(playerRows) > 0 {
+			p1 := User{
+				UserID:      int(playerRows[0].UserID),
+				Username:    playerRows[0].Username,
+				DisplayName: playerRows[0].DisplayName,
+				IconPath:    playerRows[0].IconPath,
+				IsAdmin:     playerRows[0].IsAdmin,
+				Label:       toNullable(playerRows[0].Label),
+			}
+			player1 = &p1
+		}
+		if len(playerRows) > 1 {
+			p2 := User{
+				UserID:      int(playerRows[1].UserID),
+				Username:    playerRows[1].Username,
+				DisplayName: playerRows[1].DisplayName,
+				IconPath:    playerRows[1].IconPath,
+				IsAdmin:     playerRows[1].IsAdmin,
+				Label:       toNullable(playerRows[1].Label),
+			}
+			player2 = &p2
+		}
+
+		var winnerID *int
+		var player1Score, player2Score *int
+
+		if gameRow.StartedAt.Valid {
+			rankingRows, err := h.q.GetRanking(ctx, gameID)
+			if err == nil && len(rankingRows) > 0 {
+				// Find scores for each player
+				for _, ranking := range rankingRows {
+					userID := int(ranking.User.UserID)
+					score := int(ranking.Submission.CodeSize)
+
+					if player1 != nil && player1.UserID == userID {
+						player1Score = &score
+						if winnerID == nil {
+							winnerID = &userID
+						}
+					}
+					if player2 != nil && player2.UserID == userID {
+						player2Score = &score
+						if winnerID == nil {
+							winnerID = &userID
+						}
+					}
+				}
+			}
+		}
+
+		match := TournamentMatch{
+			GameID:       int(gameID),
+			Player1:      player1,
+			Player2:      player2,
+			Player1Score: player1Score,
+			Player2Score: player2Score,
+			Winner:       winnerID,
+		}
+		matches = append(matches, match)
+	}
+
+	return GetTournament200JSONResponse{
+		Tournament: Tournament{
+			Matches: matches,
+		},
+	}, nil
+}
+
 func toNullable[T any](p *T) nullable.Nullable[T] {
 	if p == nil {
 		return nullable.NewNullNullable[T]()

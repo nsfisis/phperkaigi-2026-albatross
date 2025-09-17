@@ -13,8 +13,8 @@ export default function Score({ status, score }: Props) {
 
 		if (status === "running") {
 			intervalId = setInterval(() => {
-				const maxValue = Math.pow(10, String(score).length) - 1;
-				const minValue = Math.pow(10, String(score).length - 1);
+				const maxValue = Math.pow(10, String(score ?? 100).length) - 1;
+				const minValue = Math.pow(10, String(score ?? 100).length - 1);
 				const randomValue =
 					Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
 				setDisplayScore(randomValue);

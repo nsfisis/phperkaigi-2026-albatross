@@ -140,6 +140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tournament": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get tournament bracket data */
+        get: operations["getTournament"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -218,6 +235,21 @@ export interface components {
             submitted_at: number;
             /** @example echo 'hello world'; */
             code: string | null;
+        };
+        Tournament: {
+            matches: components["schemas"]["TournamentMatch"][];
+        };
+        TournamentMatch: {
+            /** @example 1 */
+            game_id: number;
+            player1?: components["schemas"]["User"];
+            player2?: components["schemas"]["User"];
+            /** @example 1 */
+            player1_score?: number;
+            /** @example 1 */
+            player2_score?: number;
+            /** @example 1 */
+            winner?: number;
         };
     };
     responses: {
@@ -501,6 +533,39 @@ export interface operations {
                         states: {
                             [key: string]: components["schemas"]["LatestGameState"];
                         };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTournament: {
+        parameters: {
+            query: {
+                game1: number;
+                game2: number;
+                game3: number;
+                game4: number;
+                game5: number;
+            };
+            header: {
+                Authorization: components["parameters"]["header_authorization"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tournament data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tournament: components["schemas"]["Tournament"];
                     };
                 };
             };

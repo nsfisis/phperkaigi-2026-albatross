@@ -222,6 +222,55 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /tournament:
+    get:
+      operationId: getTournament
+      summary: Get tournament bracket data
+      parameters:
+        - $ref: '#/components/parameters/header_authorization'
+        - in: query
+          name: game1
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: game2
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: game3
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: game4
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: game5
+          schema:
+            type: integer
+          required: true
+      responses:
+        '200':
+          description: Tournament data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tournament:
+                    $ref: '#/components/schemas/Tournament'
+                required:
+                  - tournament
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   parameters:
     header_authorization:
@@ -419,3 +468,33 @@ components:
         - score
         - submitted_at
         - code
+    Tournament:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentMatch'
+      required:
+        - matches
+    TournamentMatch:
+      type: object
+      properties:
+        game_id:
+          type: integer
+          example: 1
+        player1:
+          $ref: '#/components/schemas/User'
+        player2:
+          $ref: '#/components/schemas/User'
+        player1_score:
+          type: integer
+          example: 1
+        player2_score:
+          type: integer
+          example: 1
+        winner:
+          type: integer
+          example: 1
+      required:
+        - game_id

@@ -99,6 +99,18 @@ func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestOb
 	return h.impl.GetGames(ctx, request, user)
 }
 
+func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error) {
+	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
+	if err != nil {
+		return GetTournament401JSONResponse{
+			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
+				Message: "Unauthorized",
+			},
+		}, nil
+	}
+	return h.impl.GetTournament(ctx, request, user)
+}
+
 func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject) (PostGamePlayCodeResponseObject, error) {
 	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
 	if err != nil {

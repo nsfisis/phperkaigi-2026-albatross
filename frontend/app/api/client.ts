@@ -107,6 +107,23 @@ class AuthenticatedApiClient {
 		return data;
 	}
 
+	async getTournament(
+		game1: number,
+		game2: number,
+		game3: number,
+		game4: number,
+		game5: number,
+	) {
+		const { data, error } = await client.GET("/tournament", {
+			params: {
+				header: this._getAuthorizationHeader(),
+				query: { game1, game2, game3, game4, game5 },
+			},
+		});
+		if (error) throw new Error(error.message);
+		return data;
+	}
+
 	_getAuthorizationHeader() {
 		return { Authorization: `Bearer ${this.token}` };
 	}
