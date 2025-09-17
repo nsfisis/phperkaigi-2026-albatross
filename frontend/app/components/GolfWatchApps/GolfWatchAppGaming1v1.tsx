@@ -13,6 +13,7 @@ import CodeBlock from "../Gaming/CodeBlock";
 import LeftTime from "../Gaming/LeftTime";
 import ProblemColumnContent from "../Gaming/ProblemColumnContent";
 import RankingTable from "../Gaming/RankingTable";
+import Score from "../Gaming/Score";
 import ScoreBar from "../Gaming/ScoreBar";
 import SubmitStatusLabel from "../SubmitStatusLabel";
 import ThreeColumnLayout from "../ThreeColumnLayout";
@@ -82,7 +83,9 @@ export default function GolfWatchAppGaming1v1({
 							{playerProfileA?.displayName}
 						</div>
 					</div>
-					<div className="text-2xl md:text-6xl">{scoreA}</div>
+					<div className="text-2xl md:text-6xl">
+						<Score status={statusA} score={scoreA} />
+					</div>
 				</div>
 				<div className="font-bold text-center">
 					<div className="text-gray-100">{gameDisplayName}</div>
@@ -99,7 +102,9 @@ export default function GolfWatchAppGaming1v1({
 					)}
 				</div>
 				<div className="font-bold flex gap-4 justify-end md:justify-between items-center my-auto">
-					<div className="text-2xl md:text-6xl">{scoreB}</div>
+					<div className="text-2xl md:text-6xl">
+						<Score status={statusB} score={scoreB} />
+					</div>
 					<div className="flex gap-6 items-center text-end">
 						<div className="hidden md:block text-4xl">
 							{playerProfileB?.displayName}
