@@ -25,16 +25,18 @@ export default function CodeBlock({ code, language }: Props) {
 
 	return (
 		<div className="relative">
-			<button
-				onClick={handleCopy}
-				className="absolute top-2 right-2 z-10 px-2 py-1 bg-white border border-gray-300 rounded shadow-md hover:bg-gray-100 transition-colors"
-				title="コードをコピーする"
-			>
-				<FontAwesomeIcon icon={faCopy} className="text-gray-600" />
-				{showCopied && (
-					<span className="ml-1 text-xs text-blue-600">Copied!</span>
-				)}
-			</button>
+			{code !== "" && (
+				<button
+					onClick={handleCopy}
+					className="absolute top-2 right-2 z-10 px-2 py-1 bg-white border border-gray-300 rounded shadow-md hover:bg-gray-100 transition-colors"
+					title="コードをコピーする"
+				>
+					<FontAwesomeIcon icon={faCopy} className="text-gray-600" />
+					{showCopied && (
+						<span className="ml-1 text-xs text-blue-600">Copied!</span>
+					)}
+				</button>
+			)}
 			<pre className="h-full w-full p-2 bg-gray-50 rounded-lg border border-gray-300 whitespace-pre-wrap break-words">
 				{nodes === null ? <code>{code}</code> : nodes}
 			</pre>
