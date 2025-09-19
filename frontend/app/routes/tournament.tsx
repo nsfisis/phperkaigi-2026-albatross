@@ -301,7 +301,7 @@ export default function Tournament() {
 
 	return (
 		<div className="p-6 bg-gray-100 min-h-screen">
-			<div className="max-w-4xl mx-auto">
+			<div className="max-w-5xl mx-auto">
 				<h1 className="text-3xl font-bold text-transparent bg-clip-text bg-iosdc-japan text-center mb-8">
 					iOSDC Japan 2025 Swift Code Battle
 				</h1>
