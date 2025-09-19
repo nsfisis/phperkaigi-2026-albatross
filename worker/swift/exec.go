@@ -199,7 +199,14 @@ func doExec(
 	}
 	defer removeWorkingDir(workingDir)
 
-	res = initSwiftProject(ctx, workingDir, maxDuration)
+	for range 3 {
+		res = initSwiftProject(ctx, workingDir, maxDuration)
+		if res.success() {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		maxDuration += 1 * time.Second
+	}
 	if !res.success() {
 		return res
 	}
