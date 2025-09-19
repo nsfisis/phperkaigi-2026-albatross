@@ -116,7 +116,7 @@ func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth
 	}, nil
 }
 
-func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, _ *auth.JWTClaims) (GetGameResponseObject, error) {
+func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, user *auth.JWTClaims) (GetGameResponseObject, error) {
 	gameID := request.GameID
 	row, err := h.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
@@ -129,7 +129,7 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, _ *
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if !row.IsPublic {
+	if !row.IsPublic && !user.IsAdmin {
 		return GetGame404JSONResponse{
 			NotFoundJSONResponse: NotFoundJSONResponse{
 				Message: "Game not found",
