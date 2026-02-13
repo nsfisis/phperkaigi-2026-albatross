@@ -4,15 +4,14 @@
 	"sideEffects": false,
 	"type": "module",
 	"scripts": {
-		"build": "react-router build",
+		"build": "vite build",
 		"check": "npm run check:biome && npm run check:ts && npm run check:eslint",
 		"check:biome": "biome check --write",
 		"check:eslint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
-		"check:ts": "react-router typegen && tsc --noEmit",
-		"dev": "react-router dev",
+		"check:ts": "tsc --noEmit",
+		"dev": "vite",
 		"openapi-typescript": "openapi-typescript --output ./app/api/schema.d.ts ../openapi/api-server.yaml",
-		"shiki-codegen": "shiki-codegen --langs php,swift --themes github-light --engine javascript ./app/shiki.bundle.ts",
-		"start": "react-router-serve ./build/server/index.js"
+		"shiki-codegen": "shiki-codegen --langs php,swift --themes github-light --engine javascript ./app/shiki.bundle.ts"
 	},
 	"dependencies": {
 		"@base-ui-components/react": "^1.0.0-alpha.7",
