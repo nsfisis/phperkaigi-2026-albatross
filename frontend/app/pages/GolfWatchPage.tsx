@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { ApiClientContext, createApiClient } from "../api/client";
 import type { components } from "../api/schema";
-import { getToken } from "../auth";
 import GolfWatchApp from "../components/GolfWatchApp";
 import { APP_NAME } from "../config";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -31,9 +30,7 @@ export default function GolfWatchPage({ gameId }: { gameId: string }) {
 	);
 
 	useEffect(() => {
-		const token = getToken();
-		if (!token) return;
-		const apiClient = createApiClient(token);
+		const apiClient = createApiClient();
 		Promise.all([
 			apiClient.getGame(gameIdNum),
 			apiClient.getGameWatchRanking(gameIdNum),
@@ -61,11 +58,9 @@ export default function GolfWatchPage({ gameId }: { gameId: string }) {
 		);
 	}
 
-	const token = getToken()!;
-
 	return (
 		<JotaiProvider store={store}>
-			<ApiClientContext.Provider value={createApiClient(token)}>
+			<ApiClientContext.Provider value={createApiClient()}>
 				<GolfWatchApp
 					key={game.game_id}
 					game={game}

@@ -4,10 +4,8 @@ package api
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"albatross-2026-backend/auth"
+	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 )
 
@@ -17,31 +15,19 @@ type HandlerWrapper struct {
 	impl Handler
 }
 
-func NewHandler(queries *db.Queries, hub GameHubInterface) *HandlerWrapper {
+func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) *HandlerWrapper {
 	return &HandlerWrapper{
 		impl: Handler{
-			q:   queries,
-			hub: hub,
+			q:    queries,
+			hub:  hub,
+			conf: conf,
 		},
 	}
 }
 
-func parseJWTClaimsFromAuthorizationHeader(authorization string) (*auth.JWTClaims, error) {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(authorization, prefix) {
-		return nil, errors.New("invalid authorization header")
-	}
-	token := authorization[len(prefix):]
-	claims, err := auth.ParseJWT(token)
-	if err != nil {
-		return nil, err
-	}
-	return claims, nil
-}
-
 func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObject) (GetGameResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetGame401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -52,8 +38,8 @@ func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObje
 }
 
 func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject) (GetGamePlayLatestStateResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetGamePlayLatestState401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -64,8 +50,8 @@ func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request Get
 }
 
 func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetGameWatchLatestStates401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -76,8 +62,8 @@ func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request G
 }
 
 func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject) (GetGameWatchRankingResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetGameWatchRanking401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -88,8 +74,8 @@ func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGam
 }
 
 func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetGames401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -99,9 +85,21 @@ func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestOb
 	return h.impl.GetGames(ctx, request, user)
 }
 
+func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error) {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
+		return GetMe401JSONResponse{
+			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
+				Message: "Unauthorized",
+			},
+		}, nil
+	}
+	return h.impl.GetMe(ctx, request, user)
+}
+
 func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return GetTournament401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -112,8 +110,8 @@ func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamen
 }
 
 func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject) (PostGamePlayCodeResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return PostGamePlayCode401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -124,8 +122,8 @@ func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGameP
 }
 
 func (h *HandlerWrapper) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject) (PostGamePlaySubmitResponseObject, error) {
-	user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-	if err != nil {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
 		return PostGamePlaySubmit401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 				Message: "Unauthorized",
@@ -137,4 +135,16 @@ func (h *HandlerWrapper) PostGamePlaySubmit(ctx context.Context, request PostGam
 
 func (h *HandlerWrapper) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
 	return h.impl.PostLogin(ctx, request)
+}
+
+func (h *HandlerWrapper) PostLogout(ctx context.Context, request PostLogoutRequestObject) (PostLogoutResponseObject, error) {
+	user, ok := GetJWTClaimsFromContext(ctx)
+	if !ok {
+		return PostLogout401JSONResponse{
+			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
+				Message: "Unauthorized",
+			},
+		}, nil
+	}
+	return h.impl.PostLogout(ctx, request, user)
 }

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { ApiClientContext, createApiClient } from "../api/client";
 import type { components } from "../api/schema";
-import { getToken } from "../auth";
 import GolfPlayApp from "../components/GolfPlayApp";
 import { APP_NAME } from "../config";
 import { useAuth } from "../hooks/useAuth";
@@ -29,9 +28,7 @@ export default function GolfPlayPage({ gameId }: { gameId: string }) {
 	);
 
 	useEffect(() => {
-		const token = getToken();
-		if (!token) return;
-		const apiClient = createApiClient(token);
+		const apiClient = createApiClient();
 		Promise.all([
 			apiClient.getGame(gameIdNum),
 			apiClient.getGamePlayLatestState(gameIdNum),
@@ -57,11 +54,9 @@ export default function GolfPlayPage({ gameId }: { gameId: string }) {
 		);
 	}
 
-	const token = getToken()!;
-
 	return (
 		<JotaiProvider store={store}>
-			<ApiClientContext.Provider value={createApiClient(token)}>
+			<ApiClientContext.Provider value={createApiClient()}>
 				<GolfPlayApp
 					key={game.game_id}
 					game={game}

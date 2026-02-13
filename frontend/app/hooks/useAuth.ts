@@ -1,58 +1,33 @@
-import { useCallback, useSyncExternalStore } from "react";
-import { apiLogin } from "../api/client";
-import {
-	type User,
-	clearToken,
-	getToken,
-	getUserFromToken,
-	isTokenExpired,
-	setToken,
-} from "../auth";
-
-// Simple external store to trigger re-renders when auth state changes.
-let authVersion = 0;
-const listeners = new Set<() => void>();
-
-function subscribe(callback: () => void) {
-	listeners.add(callback);
-	return () => listeners.delete(callback);
-}
-
-function getSnapshot() {
-	return authVersion;
-}
-
-function notifyAuthChange() {
-	authVersion++;
-	for (const listener of listeners) {
-		listener();
-	}
-}
+import { useCallback, useEffect, useState } from "react";
+import { apiGetMe, apiLogin, apiLogout } from "../api/client";
+import type { User } from "../auth";
 
 export function useAuth(): {
 	user: User | null;
-	token: string | null;
 	isLoggedIn: boolean;
+	isLoading: boolean;
 	login: (username: string, password: string) => Promise<void>;
-	logout: () => void;
+	logout: () => Promise<void>;
 } {
-	useSyncExternalStore(subscribe, getSnapshot);
+	const [user, setUser] = useState<User | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
 
-	const token = getToken();
-	const isExpired = isTokenExpired();
-	const user = isExpired ? null : getUserFromToken();
-	const isLoggedIn = user !== null && !isExpired;
+	useEffect(() => {
+		apiGetMe()
+			.then((data) => setUser(data?.user ?? null))
+			.catch(() => setUser(null))
+			.finally(() => setIsLoading(false));
+	}, []);
 
 	const login = useCallback(async (username: string, password: string) => {
-		const { token } = await apiLogin(username, password);
-		setToken(token);
-		notifyAuthChange();
+		const { user } = await apiLogin(username, password);
+		setUser(user);
 	}, []);
 
-	const logout = useCallback(() => {
-		clearToken();
-		notifyAuthChange();
+	const logout = useCallback(async () => {
+		await apiLogout();
+		setUser(null);
 	}, []);
 
-	return { user, token: isLoggedIn ? token : null, isLoggedIn, login, logout };
+	return { user, isLoggedIn: user !== null, isLoading, login, logout };
 }

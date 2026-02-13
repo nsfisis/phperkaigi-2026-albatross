@@ -73,8 +73,9 @@ func main() {
 
 	apiGroup := e.Group(conf.BasePath + "api")
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
+	apiGroup.Use(api.JWTCookieMiddleware)
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
-	apiHandler := api.NewHandler(queries, gameHub)
+	apiHandler := api.NewHandler(queries, gameHub, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
 	adminHandler := admin.NewHandler(queries, conf)
@@ -97,7 +98,10 @@ func main() {
 		})
 
 		// Allow access from dev server.
-		e.Use(middleware.CORS())
+		e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+			AllowOrigins:     []string{"http://localhost:5173"},
+			AllowCredentials: true,
+		}))
 	}
 
 	go gameHub.Run()

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { createApiClient } from "../api/client";
 import type { components } from "../api/schema";
-import { getToken } from "../auth";
 import BorderedContainerWithCaption from "../components/BorderedContainerWithCaption";
 import NavigateLink from "../components/NavigateLink";
 import UserIcon from "../components/UserIcon";
@@ -22,17 +21,15 @@ export default function DashboardPage() {
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		const token = getToken();
-		if (!token) return;
-		const apiClient = createApiClient(token);
+		const apiClient = createApiClient();
 		apiClient
 			.getGames()
 			.then(({ games }) => setGames(games))
 			.finally(() => setLoading(false));
 	}, []);
 
-	function handleLogout() {
-		logout();
+	async function handleLogout() {
+		await logout();
 		navigate("/");
 	}
 

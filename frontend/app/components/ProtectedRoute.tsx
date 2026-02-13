@@ -6,7 +6,11 @@ export default function ProtectedRoute({
 }: {
 	children: React.ReactNode;
 }) {
-	const { isLoggedIn } = useAuth();
+	const { isLoggedIn, isLoading } = useAuth();
+
+	if (isLoading) {
+		return null;
+	}
 
 	if (!isLoggedIn) {
 		return <Redirect to="/login" />;

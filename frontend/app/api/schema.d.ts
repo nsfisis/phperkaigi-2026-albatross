@@ -21,6 +21,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** User logout */
+        post: operations["postLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current user */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/games": {
         parameters: {
             query?: never;
@@ -291,7 +325,6 @@ export interface components {
         };
     };
     parameters: {
-        header_authorization: string;
         path_game_id: number;
     };
     requestBodies: never;
@@ -325,8 +358,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @example xxxxx.xxxxx.xxxxx */
-                        token: string;
+                        user: components["schemas"]["User"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successfully logged out */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user info */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["User"];
                     };
                 };
             };
@@ -336,9 +410,7 @@ export interface operations {
     getGames: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -362,9 +434,7 @@ export interface operations {
     getGame: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -391,9 +461,7 @@ export interface operations {
     getGamePlayLatestState: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -420,9 +488,7 @@ export interface operations {
     postGamePlayCode: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -452,9 +518,7 @@ export interface operations {
     postGamePlaySubmit: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -484,9 +548,7 @@ export interface operations {
     getGameWatchRanking: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -513,9 +575,7 @@ export interface operations {
     getGameWatchLatestStates: {
         parameters: {
             query?: never;
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path: {
                 game_id: components["parameters"]["path_game_id"];
             };
@@ -550,9 +610,7 @@ export interface operations {
                 game4: number;
                 game5: number;
             };
-            header: {
-                Authorization: components["parameters"]["header_authorization"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };

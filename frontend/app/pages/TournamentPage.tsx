@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { createApiClient } from "../api/client";
 import type { components } from "../api/schema";
-import { getToken } from "../auth";
 import BorderedContainer from "../components/BorderedContainer";
 import UserIcon from "../components/UserIcon";
 import { APP_NAME } from "../config";
@@ -241,9 +240,7 @@ export default function TournamentPage() {
 
 		setPlayerIDs(pIDs);
 
-		const token = getToken();
-		if (!token) return;
-		const apiClient = createApiClient(token);
+		const apiClient = createApiClient();
 		apiClient
 			.getTournament(game1, game2, game3, game4, game5)
 			.then(({ tournament }) => setTournament(tournament))

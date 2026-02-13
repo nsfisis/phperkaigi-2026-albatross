@@ -104,10 +104,8 @@ package api
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"albatross-2026-backend/auth"
+	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 )
 
@@ -117,33 +115,21 @@ type HandlerWrapper struct {
 	impl Handler
 }
 
-func NewHandler(queries *db.Queries, hub GameHubInterface) *HandlerWrapper {
+func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) *HandlerWrapper {
 	return &HandlerWrapper{
 		impl: Handler{
 			q:    queries,
 			hub:  hub,
+			conf: conf,
 		},
 	}
-}
-
-func parseJWTClaimsFromAuthorizationHeader(authorization string) (*auth.JWTClaims, error) {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(authorization, prefix) {
-		return nil, errors.New("invalid authorization header")
-	}
-	token := authorization[len(prefix):]
-	claims, err := auth.ParseJWT(token)
-	if err != nil {
-		return nil, err
-	}
-	return claims, nil
 }
 
 {{ range . }}
 	func (h *HandlerWrapper) {{ .Name }}(ctx context.Context, request {{ .Name }}RequestObject) ({{ .Name }}ResponseObject, error) {
 		{{ if .RequiresLogin -}}
-			user, err := parseJWTClaimsFromAuthorizationHeader(request.Params.Authorization)
-			if err != nil {
+			user, ok := GetJWTClaimsFromContext(ctx)
+			if !ok {
 				return {{ .Name }}401JSONResponse{
 					UnauthorizedJSONResponse: UnauthorizedJSONResponse{
 						Message: "Unauthorized",

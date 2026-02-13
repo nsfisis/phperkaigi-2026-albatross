@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Albatross internal web API
-  version: 0.2.0
+  version: 0.3.0
 paths:
   /login:
     post:
@@ -31,19 +31,43 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
-                    type: string
-                    example: "xxxxx.xxxxx.xxxxx"
+                  user:
+                    $ref: '#/components/schemas/User'
                 required:
-                  - token
+                  - user
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /logout:
+    post:
+      operationId: postLogout
+      summary: User logout
+      responses:
+        '200':
+          description: Successfully logged out
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /me:
+    get:
+      operationId: getMe
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                  - user
         '401':
           $ref: '#/components/responses/Unauthorized'
   /games:
     get:
       operationId: getGames
       summary: List games
-      parameters:
-        - $ref: '#/components/parameters/header_authorization'
       responses:
         '200':
           description: List of games
@@ -67,7 +91,6 @@ paths:
       operationId: getGame
       summary: Get a game
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       responses:
         '200':
@@ -92,7 +115,6 @@ paths:
       operationId: getGamePlayLatestState
       summary: Get the latest execution result for player
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       responses:
         '200':
@@ -117,7 +139,6 @@ paths:
       operationId: postGamePlayCode
       summary: Post the latest code
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       requestBody:
         required: true
@@ -145,7 +166,6 @@ paths:
       operationId: postGamePlaySubmit
       summary: Submit the answer
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       requestBody:
         required: true
@@ -173,7 +193,6 @@ paths:
       operationId: getGameWatchRanking
       summary: Get the latest player ranking
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       responses:
         '200':
@@ -200,7 +219,6 @@ paths:
       operationId: getGameWatchLatestStates
       summary: Get all the latest game states of the main players
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - $ref: '#/components/parameters/path_game_id'
       responses:
         '200':
@@ -227,7 +245,6 @@ paths:
       operationId: getTournament
       summary: Get tournament bracket data
       parameters:
-        - $ref: '#/components/parameters/header_authorization'
         - in: query
           name: game1
           schema:
@@ -273,12 +290,6 @@ paths:
           $ref: '#/components/responses/NotFound'
 components:
   parameters:
-    header_authorization:
-      in: header
-      name: Authorization
-      schema:
-        type: string
-      required: true
     path_game_id:
       in: path
       name: game_id

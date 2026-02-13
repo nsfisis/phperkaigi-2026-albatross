@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -12,17 +13,31 @@ import (
 	"github.com/oapi-codegen/nullable"
 
 	"albatross-2026-backend/auth"
+	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 )
 
 type Handler struct {
-	q   *db.Queries
-	hub GameHubInterface
+	q    *db.Queries
+	hub  GameHubInterface
+	conf *config.Config
 }
 
 type GameHubInterface interface {
 	CalcCodeSize(code string, language string) int
 	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
+}
+
+type postLoginCookieResponse struct {
+	cookie http.Cookie
+	body   PostLogin200JSONResponse
+}
+
+func (r postLoginCookieResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
+	http.SetCookie(w, &r.cookie)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	return json.NewEncoder(w).Encode(r.body)
 }
 
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
@@ -44,7 +59,7 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 		}, nil
 	}
 
-	user, err := h.q.GetUserByID(ctx, int32(userID))
+	dbUser, err := h.q.GetUserByID(ctx, int32(userID))
 	if err != nil {
 		return PostLogin401JSONResponse{
 			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
@@ -53,13 +68,76 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 		}, nil
 	}
 
-	jwt, err := auth.NewJWT(&user)
+	jwt, err := auth.NewJWT(&dbUser)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return PostLogin200JSONResponse{
-		Token: jwt,
+	return postLoginCookieResponse{
+		cookie: http.Cookie{
+			Name:     "albatross_token",
+			Value:    jwt,
+			Path:     h.conf.BasePath,
+			MaxAge:   86400,
+			HttpOnly: true,
+			Secure:   !h.conf.IsLocal,
+			SameSite: http.SameSiteLaxMode,
+		},
+		body: PostLogin200JSONResponse{
+			User: User{
+				UserID:      int(dbUser.UserID),
+				Username:    dbUser.Username,
+				DisplayName: dbUser.DisplayName,
+				IconPath:    dbUser.IconPath,
+				IsAdmin:     dbUser.IsAdmin,
+				Label:       toNullable(dbUser.Label),
+			},
+		},
+	}, nil
+}
+
+func (h *Handler) GetMe(ctx context.Context, _ GetMeRequestObject, claims *auth.JWTClaims) (GetMeResponseObject, error) {
+	dbUser, err := h.q.GetUserByID(ctx, int32(claims.UserID))
+	if err != nil {
+		return GetMe401JSONResponse{
+			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
+				Message: "Unauthorized",
+			},
+		}, nil
+	}
+	return GetMe200JSONResponse{
+		User: User{
+			UserID:      int(dbUser.UserID),
+			Username:    dbUser.Username,
+			DisplayName: dbUser.DisplayName,
+			IconPath:    dbUser.IconPath,
+			IsAdmin:     dbUser.IsAdmin,
+			Label:       toNullable(dbUser.Label),
+		},
+	}, nil
+}
+
+type postLogoutCookieResponse struct {
+	cookie http.Cookie
+}
+
+func (r postLogoutCookieResponse) VisitPostLogoutResponse(w http.ResponseWriter) error {
+	http.SetCookie(w, &r.cookie)
+	w.WriteHeader(200)
+	return nil
+}
+
+func (h *Handler) PostLogout(_ context.Context, _ PostLogoutRequestObject, _ *auth.JWTClaims) (PostLogoutResponseObject, error) {
+	return postLogoutCookieResponse{
+		cookie: http.Cookie{
+			Name:     "albatross_token",
+			Value:    "",
+			Path:     h.conf.BasePath,
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   !h.conf.IsLocal,
+			SameSite: http.SameSiteLaxMode,
+		},
 	}, nil
 }
 

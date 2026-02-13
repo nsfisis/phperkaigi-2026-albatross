@@ -122,9 +122,6 @@ type User struct {
 	Username    string                    `json:"username"`
 }
 
-// HeaderAuthorization defines model for header_authorization.
-type HeaderAuthorization = string
-
 // PathGameID defines model for path_game_id.
 type PathGameID = int
 
@@ -140,49 +137,14 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
-// GetGamesParams defines parameters for GetGames.
-type GetGamesParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
-// GetGameParams defines parameters for GetGame.
-type GetGameParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
 // PostGamePlayCodeJSONBody defines parameters for PostGamePlayCode.
 type PostGamePlayCodeJSONBody struct {
 	Code string `json:"code"`
 }
 
-// PostGamePlayCodeParams defines parameters for PostGamePlayCode.
-type PostGamePlayCodeParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
-// GetGamePlayLatestStateParams defines parameters for GetGamePlayLatestState.
-type GetGamePlayLatestStateParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
 // PostGamePlaySubmitJSONBody defines parameters for PostGamePlaySubmit.
 type PostGamePlaySubmitJSONBody struct {
 	Code string `json:"code"`
-}
-
-// PostGamePlaySubmitParams defines parameters for PostGamePlaySubmit.
-type PostGamePlaySubmitParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
-// GetGameWatchLatestStatesParams defines parameters for GetGameWatchLatestStates.
-type GetGameWatchLatestStatesParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
-}
-
-// GetGameWatchRankingParams defines parameters for GetGameWatchRanking.
-type GetGameWatchRankingParams struct {
-	Authorization HeaderAuthorization `json:"Authorization"`
 }
 
 // PostLoginJSONBody defines parameters for PostLogin.
@@ -193,12 +155,11 @@ type PostLoginJSONBody struct {
 
 // GetTournamentParams defines parameters for GetTournament.
 type GetTournamentParams struct {
-	Game1         int                 `form:"game1" json:"game1"`
-	Game2         int                 `form:"game2" json:"game2"`
-	Game3         int                 `form:"game3" json:"game3"`
-	Game4         int                 `form:"game4" json:"game4"`
-	Game5         int                 `form:"game5" json:"game5"`
-	Authorization HeaderAuthorization `json:"Authorization"`
+	Game1 int `form:"game1" json:"game1"`
+	Game2 int `form:"game2" json:"game2"`
+	Game3 int `form:"game3" json:"game3"`
+	Game4 int `form:"game4" json:"game4"`
+	Game5 int `form:"game5" json:"game5"`
 }
 
 // PostGamePlayCodeJSONRequestBody defines body for PostGamePlayCode for application/json ContentType.
@@ -214,28 +175,34 @@ type PostLoginJSONRequestBody PostLoginJSONBody
 type ServerInterface interface {
 	// List games
 	// (GET /games)
-	GetGames(ctx echo.Context, params GetGamesParams) error
+	GetGames(ctx echo.Context) error
 	// Get a game
 	// (GET /games/{game_id})
-	GetGame(ctx echo.Context, gameID PathGameID, params GetGameParams) error
+	GetGame(ctx echo.Context, gameID PathGameID) error
 	// Post the latest code
 	// (POST /games/{game_id}/play/code)
-	PostGamePlayCode(ctx echo.Context, gameID PathGameID, params PostGamePlayCodeParams) error
+	PostGamePlayCode(ctx echo.Context, gameID PathGameID) error
 	// Get the latest execution result for player
 	// (GET /games/{game_id}/play/latest_state)
-	GetGamePlayLatestState(ctx echo.Context, gameID PathGameID, params GetGamePlayLatestStateParams) error
+	GetGamePlayLatestState(ctx echo.Context, gameID PathGameID) error
 	// Submit the answer
 	// (POST /games/{game_id}/play/submit)
-	PostGamePlaySubmit(ctx echo.Context, gameID PathGameID, params PostGamePlaySubmitParams) error
+	PostGamePlaySubmit(ctx echo.Context, gameID PathGameID) error
 	// Get all the latest game states of the main players
 	// (GET /games/{game_id}/watch/latest_states)
-	GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID, params GetGameWatchLatestStatesParams) error
+	GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID) error
 	// Get the latest player ranking
 	// (GET /games/{game_id}/watch/ranking)
-	GetGameWatchRanking(ctx echo.Context, gameID PathGameID, params GetGameWatchRankingParams) error
+	GetGameWatchRanking(ctx echo.Context, gameID PathGameID) error
 	// User login
 	// (POST /login)
 	PostLogin(ctx echo.Context) error
+	// User logout
+	// (POST /logout)
+	PostLogout(ctx echo.Context) error
+	// Get current user
+	// (GET /me)
+	GetMe(ctx echo.Context) error
 	// Get tournament bracket data
 	// (GET /tournament)
 	GetTournament(ctx echo.Context, params GetTournamentParams) error
@@ -250,30 +217,8 @@ type ServerInterfaceWrapper struct {
 func (w *ServerInterfaceWrapper) GetGames(ctx echo.Context) error {
 	var err error
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetGamesParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetGames(ctx, params)
+	err = w.Handler.GetGames(ctx)
 	return err
 }
 
@@ -288,30 +233,8 @@ func (w *ServerInterfaceWrapper) GetGame(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetGameParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetGame(ctx, gameID, params)
+	err = w.Handler.GetGame(ctx, gameID)
 	return err
 }
 
@@ -326,30 +249,8 @@ func (w *ServerInterfaceWrapper) PostGamePlayCode(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostGamePlayCodeParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.PostGamePlayCode(ctx, gameID, params)
+	err = w.Handler.PostGamePlayCode(ctx, gameID)
 	return err
 }
 
@@ -364,30 +265,8 @@ func (w *ServerInterfaceWrapper) GetGamePlayLatestState(ctx echo.Context) error 
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetGamePlayLatestStateParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetGamePlayLatestState(ctx, gameID, params)
+	err = w.Handler.GetGamePlayLatestState(ctx, gameID)
 	return err
 }
 
@@ -402,30 +281,8 @@ func (w *ServerInterfaceWrapper) PostGamePlaySubmit(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostGamePlaySubmitParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.PostGamePlaySubmit(ctx, gameID, params)
+	err = w.Handler.PostGamePlaySubmit(ctx, gameID)
 	return err
 }
 
@@ -440,30 +297,8 @@ func (w *ServerInterfaceWrapper) GetGameWatchLatestStates(ctx echo.Context) erro
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetGameWatchLatestStatesParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetGameWatchLatestStates(ctx, gameID, params)
+	err = w.Handler.GetGameWatchLatestStates(ctx, gameID)
 	return err
 }
 
@@ -478,30 +313,8 @@ func (w *ServerInterfaceWrapper) GetGameWatchRanking(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game_id: %s", err))
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetGameWatchRankingParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetGameWatchRanking(ctx, gameID, params)
+	err = w.Handler.GetGameWatchRanking(ctx, gameID)
 	return err
 }
 
@@ -511,6 +324,24 @@ func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.PostLogin(ctx)
+	return err
+}
+
+// PostLogout converts echo context to params.
+func (w *ServerInterfaceWrapper) PostLogout(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostLogout(ctx)
+	return err
+}
+
+// GetMe converts echo context to params.
+func (w *ServerInterfaceWrapper) GetMe(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetMe(ctx)
 	return err
 }
 
@@ -555,25 +386,6 @@ func (w *ServerInterfaceWrapper) GetTournament(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game5: %s", err))
 	}
 
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization HeaderAuthorization
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
-		}
-
-		params.Authorization = Authorization
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetTournament(ctx, params)
 	return err
@@ -615,6 +427,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/games/:game_id/watch/latest_states", wrapper.GetGameWatchLatestStates)
 	router.GET(baseURL+"/games/:game_id/watch/ranking", wrapper.GetGameWatchRanking)
 	router.POST(baseURL+"/login", wrapper.PostLogin)
+	router.POST(baseURL+"/logout", wrapper.PostLogout)
+	router.GET(baseURL+"/me", wrapper.GetMe)
 	router.GET(baseURL+"/tournament", wrapper.GetTournament)
 
 }
@@ -628,7 +442,6 @@ type NotFoundJSONResponse Error
 type UnauthorizedJSONResponse Error
 
 type GetGamesRequestObject struct {
-	Params GetGamesParams
 }
 
 type GetGamesResponseObject interface {
@@ -666,7 +479,6 @@ func (response GetGames403JSONResponse) VisitGetGamesResponse(w http.ResponseWri
 
 type GetGameRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params GetGameParams
 }
 
 type GetGameResponseObject interface {
@@ -713,7 +525,6 @@ func (response GetGame404JSONResponse) VisitGetGameResponse(w http.ResponseWrite
 
 type PostGamePlayCodeRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params PostGamePlayCodeParams
 	Body   *PostGamePlayCodeJSONRequestBody
 }
 
@@ -758,7 +569,6 @@ func (response PostGamePlayCode404JSONResponse) VisitPostGamePlayCodeResponse(w 
 
 type GetGamePlayLatestStateRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params GetGamePlayLatestStateParams
 }
 
 type GetGamePlayLatestStateResponseObject interface {
@@ -805,7 +615,6 @@ func (response GetGamePlayLatestState404JSONResponse) VisitGetGamePlayLatestStat
 
 type PostGamePlaySubmitRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params PostGamePlaySubmitParams
 	Body   *PostGamePlaySubmitJSONRequestBody
 }
 
@@ -850,7 +659,6 @@ func (response PostGamePlaySubmit404JSONResponse) VisitPostGamePlaySubmitRespons
 
 type GetGameWatchLatestStatesRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params GetGameWatchLatestStatesParams
 }
 
 type GetGameWatchLatestStatesResponseObject interface {
@@ -897,7 +705,6 @@ func (response GetGameWatchLatestStates404JSONResponse) VisitGetGameWatchLatestS
 
 type GetGameWatchRankingRequestObject struct {
 	GameID PathGameID `json:"game_id"`
-	Params GetGameWatchRankingParams
 }
 
 type GetGameWatchRankingResponseObject interface {
@@ -951,7 +758,7 @@ type PostLoginResponseObject interface {
 }
 
 type PostLogin200JSONResponse struct {
-	Token string `json:"token"`
+	User User `json:"user"`
 }
 
 func (response PostLogin200JSONResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
@@ -964,6 +771,57 @@ func (response PostLogin200JSONResponse) VisitPostLoginResponse(w http.ResponseW
 type PostLogin401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response PostLogin401JSONResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostLogoutRequestObject struct {
+}
+
+type PostLogoutResponseObject interface {
+	VisitPostLogoutResponse(w http.ResponseWriter) error
+}
+
+type PostLogout200Response struct {
+}
+
+func (response PostLogout200Response) VisitPostLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostLogout401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostLogout401JSONResponse) VisitPostLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse struct {
+	User User `json:"user"`
+}
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetMe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
@@ -1042,6 +900,12 @@ type StrictServerInterface interface {
 	// User login
 	// (POST /login)
 	PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error)
+	// User logout
+	// (POST /logout)
+	PostLogout(ctx context.Context, request PostLogoutRequestObject) (PostLogoutResponseObject, error)
+	// Get current user
+	// (GET /me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
 	// Get tournament bracket data
 	// (GET /tournament)
 	GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error)
@@ -1060,10 +924,8 @@ type strictHandler struct {
 }
 
 // GetGames operation middleware
-func (sh *strictHandler) GetGames(ctx echo.Context, params GetGamesParams) error {
+func (sh *strictHandler) GetGames(ctx echo.Context) error {
 	var request GetGamesRequestObject
-
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGames(ctx.Request().Context(), request.(GetGamesRequestObject))
@@ -1085,11 +947,10 @@ func (sh *strictHandler) GetGames(ctx echo.Context, params GetGamesParams) error
 }
 
 // GetGame operation middleware
-func (sh *strictHandler) GetGame(ctx echo.Context, gameID PathGameID, params GetGameParams) error {
+func (sh *strictHandler) GetGame(ctx echo.Context, gameID PathGameID) error {
 	var request GetGameRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGame(ctx.Request().Context(), request.(GetGameRequestObject))
@@ -1111,11 +972,10 @@ func (sh *strictHandler) GetGame(ctx echo.Context, gameID PathGameID, params Get
 }
 
 // PostGamePlayCode operation middleware
-func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID PathGameID, params PostGamePlayCodeParams) error {
+func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID PathGameID) error {
 	var request PostGamePlayCodeRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	var body PostGamePlayCodeJSONRequestBody
 	if err := ctx.Bind(&body); err != nil {
@@ -1143,11 +1003,10 @@ func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID PathGameID, p
 }
 
 // GetGamePlayLatestState operation middleware
-func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID PathGameID, params GetGamePlayLatestStateParams) error {
+func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID PathGameID) error {
 	var request GetGamePlayLatestStateRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGamePlayLatestState(ctx.Request().Context(), request.(GetGamePlayLatestStateRequestObject))
@@ -1169,11 +1028,10 @@ func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID PathGam
 }
 
 // PostGamePlaySubmit operation middleware
-func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID PathGameID, params PostGamePlaySubmitParams) error {
+func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID PathGameID) error {
 	var request PostGamePlaySubmitRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	var body PostGamePlaySubmitJSONRequestBody
 	if err := ctx.Bind(&body); err != nil {
@@ -1201,11 +1059,10 @@ func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID PathGameID,
 }
 
 // GetGameWatchLatestStates operation middleware
-func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID, params GetGameWatchLatestStatesParams) error {
+func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID) error {
 	var request GetGameWatchLatestStatesRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGameWatchLatestStates(ctx.Request().Context(), request.(GetGameWatchLatestStatesRequestObject))
@@ -1227,11 +1084,10 @@ func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID PathG
 }
 
 // GetGameWatchRanking operation middleware
-func (sh *strictHandler) GetGameWatchRanking(ctx echo.Context, gameID PathGameID, params GetGameWatchRankingParams) error {
+func (sh *strictHandler) GetGameWatchRanking(ctx echo.Context, gameID PathGameID) error {
 	var request GetGameWatchRankingRequestObject
 
 	request.GameID = gameID
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetGameWatchRanking(ctx.Request().Context(), request.(GetGameWatchRankingRequestObject))
@@ -1281,6 +1137,52 @@ func (sh *strictHandler) PostLogin(ctx echo.Context) error {
 	return nil
 }
 
+// PostLogout operation middleware
+func (sh *strictHandler) PostLogout(ctx echo.Context) error {
+	var request PostLogoutRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostLogout(ctx.Request().Context(), request.(PostLogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostLogout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostLogoutResponseObject); ok {
+		return validResponse.VisitPostLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx echo.Context) error {
+	var request GetMeRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx.Request().Context(), request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		return validResponse.VisitGetMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetTournament operation middleware
 func (sh *strictHandler) GetTournament(ctx echo.Context, params GetTournamentParams) error {
 	var request GetTournamentRequestObject
@@ -1309,33 +1211,33 @@ func (sh *strictHandler) GetTournament(ctx echo.Context, params GetTournamentPar
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
