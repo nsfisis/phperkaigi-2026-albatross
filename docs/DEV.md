@@ -22,8 +22,8 @@
     * `ALBATROSS_JWT_SECRET`: Secret key for JWT tokens
     * `ALBATROSS_COOKIE_SECRET`: Secret key for cookies
 1. `direnv allow .` (optional)
-1. `make init`
-1. `make up`
+1. `just init`
+1. `just up`
 1. Access to http://localhost:5173/iosdc-japan/2025/code-battle/.
     * User `a`, `b` and `c` can log in with `pass` password.
     * User `a` and `b` are players.
