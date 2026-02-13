@@ -7,7 +7,7 @@ import globals from "globals";
 import ts from "typescript-eslint";
 
 export default defineConfig(
-	globalIgnores(["node_modules/", ".react-router/", "build/"]),
+	globalIgnores(["node_modules/", "dist/"]),
 	js.configs.recommended,
 	ts.configs.recommended,
 	react.configs.flat.recommended,
@@ -27,11 +27,7 @@ export default defineConfig(
 			react: {
 				version: "detect",
 			},
-			formComponents: ["Form"],
-			linkComponents: [
-				{ name: "Link", linkAttribute: "to" },
-				{ name: "NavLink", linkAttribute: "to" },
-			],
+			linkComponents: [{ name: "Link", linkAttribute: "to" }],
 		},
 	},
 );

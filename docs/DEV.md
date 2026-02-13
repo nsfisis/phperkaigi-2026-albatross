@@ -2,7 +2,7 @@
 
 * Reverse proxy server (Nginx)
 * API server (Golang/Echo)
-* App server (TypeScript/Remix)
+* Frontend (TypeScript/React/Vite)
 * Database (PostgreSQL)
 * Worker (Golang/Echo + Swift/SwiftWasm + WebAssembly/Wasmtime)
 

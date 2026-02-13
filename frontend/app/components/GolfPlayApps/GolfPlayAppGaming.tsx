@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import React, { useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "wouter";
 import {
 	calcCodeSize,
 	gamingLeftTimeSecondsAtom,

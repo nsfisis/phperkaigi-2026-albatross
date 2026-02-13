@@ -3,11 +3,12 @@ import { createContext } from "react";
 import { API_BASE_PATH } from "../config";
 import type { paths } from "./schema";
 
+const apiOrigin =
+	import.meta.env.VITE_API_BASE_URL ??
+	(import.meta.env.DEV ? "http://localhost:8004" : "");
+
 const client = createClient<paths>({
-	baseUrl:
-		process.env.NODE_ENV === "development"
-			? `http://localhost:8004${API_BASE_PATH}`
-			: `https://t.nil.ninja${API_BASE_PATH}`,
+	baseUrl: `${apiOrigin}${API_BASE_PATH}`,
 });
 
 export async function apiLogin(username: string, password: string) {
