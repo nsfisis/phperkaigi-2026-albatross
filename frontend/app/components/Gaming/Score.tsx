@@ -6,29 +6,27 @@ type Props = {
 };
 
 export default function Score({ status, score }: Props) {
-	const [displayScore, setDisplayScore] = useState(score);
+	const [randomScore, setRandomScore] = useState<number | null>(null);
 
 	useEffect(() => {
-		let intervalId = null;
-
-		if (status === "running") {
-			intervalId = setInterval(() => {
-				const maxValue = Math.pow(10, String(score ?? 100).length) - 1;
-				const minValue = Math.pow(10, String(score ?? 100).length - 1);
-				const randomValue =
-					Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
-				setDisplayScore(randomValue);
-			}, 50);
-		} else {
-			setDisplayScore(score);
+		if (status !== "running") {
+			return;
 		}
 
+		const intervalId = setInterval(() => {
+			const maxValue = Math.pow(10, String(score ?? 100).length) - 1;
+			const minValue = Math.pow(10, String(score ?? 100).length - 1);
+			const randomValue =
+				Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
+			setRandomScore(randomValue);
+		}, 50);
+
 		return () => {
-			if (intervalId) {
-				clearInterval(intervalId);
-			}
+			clearInterval(intervalId);
 		};
 	}, [status, score]);
+
+	const displayScore = status === "running" ? randomScore : score;
 
 	return (
 		<span className={status === "running" ? "animate-pulse" : ""}>

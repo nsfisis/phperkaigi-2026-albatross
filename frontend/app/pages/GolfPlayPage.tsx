@@ -1,4 +1,4 @@
-import { Provider as JotaiProvider, createStore } from "jotai";
+import { createStore, Provider as JotaiProvider } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { ApiClientContext, createApiClient } from "../api/client";

@@ -48,7 +48,10 @@ function BranchVR({ className = "" }: { className?: string }) {
 function BranchVL2({
 	score,
 	className = "",
-}: { score: number | null; className?: string }) {
+}: {
+	score: number | null;
+	className?: string;
+}) {
 	return (
 		<div className="grid grid-cols-3">
 			<div className={`border-r-4 ${className}`}></div>
@@ -63,7 +66,10 @@ function BranchVL2({
 function BranchVR2({
 	score,
 	className = "",
-}: { score: number | null; className?: string }) {
+}: {
+	score: number | null;
+	className?: string;
+}) {
 	return (
 		<div className="grid grid-cols-3">
 			<div className={`border-t-4 ${className}`}></div>
@@ -128,7 +134,10 @@ function BranchH2({
 function BranchL({
 	score,
 	className = "",
-}: { score: number | null; className?: string }) {
+}: {
+	score: number | null;
+	className?: string;
+}) {
 	return (
 		<div className="grid grid-cols-2">
 			<div></div>
@@ -144,7 +153,10 @@ function BranchL({
 function BranchR({
 	score,
 	className = "",
-}: { score: number | null; className?: string }) {
+}: {
+	score: number | null;
+	className?: string;
+}) {
 	return (
 		<div className="grid grid-cols-2">
 			<div
@@ -202,43 +214,42 @@ function getBorderColor(match: TournamentMatch, playerIDs: number[]): string {
 export default function TournamentPage() {
 	usePageTitle(`Tournament | ${APP_NAME}`);
 
+	const params = new URLSearchParams(window.location.search);
+	const game1 = Number(params.get("game1"));
+	const game2 = Number(params.get("game2"));
+	const game3 = Number(params.get("game3"));
+	const game4 = Number(params.get("game4"));
+	const game5 = Number(params.get("game5"));
+	const gamesValid = game1 && game2 && game3 && game4 && game5;
+
+	const pIDs = [
+		Number(params.get("player1")),
+		Number(params.get("player2")),
+		Number(params.get("player3")),
+		Number(params.get("player4")),
+		Number(params.get("player5")),
+		Number(params.get("player6")),
+	];
+	const playersValid = pIDs.every((id) => id);
+
+	const paramsValid = gamesValid && playersValid;
+	const paramsError = !gamesValid
+		? "Missing or invalid game parameters"
+		: !playersValid
+			? "Missing or invalid player parameters"
+			: null;
+
 	const [tournament, setTournament] = useState<{
 		matches: TournamentMatch[];
 	} | null>(null);
-	const [playerIDs, setPlayerIDs] = useState<number[]>([]);
+	const playerIDs = paramsValid ? pIDs : [];
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
-		const game1 = Number(params.get("game1"));
-		const game2 = Number(params.get("game2"));
-		const game3 = Number(params.get("game3"));
-		const game4 = Number(params.get("game4"));
-		const game5 = Number(params.get("game5"));
-
-		if (!game1 || !game2 || !game3 || !game4 || !game5) {
-			setError("Missing or invalid game parameters");
-			setLoading(false);
+		if (!paramsValid) {
 			return;
 		}
-
-		const pIDs = [
-			Number(params.get("player1")),
-			Number(params.get("player2")),
-			Number(params.get("player3")),
-			Number(params.get("player4")),
-			Number(params.get("player5")),
-			Number(params.get("player6")),
-		];
-
-		if (pIDs.some((id) => !id)) {
-			setError("Missing or invalid player parameters");
-			setLoading(false);
-			return;
-		}
-
-		setPlayerIDs(pIDs);
 
 		const apiClient = createApiClient();
 		apiClient
@@ -246,7 +257,15 @@ export default function TournamentPage() {
 			.then(({ tournament }) => setTournament(tournament))
 			.catch(() => setError("Failed to load tournament"))
 			.finally(() => setLoading(false));
-	}, []);
+	}, [paramsValid, game1, game2, game3, game4, game5]);
+
+	if (paramsError) {
+		return (
+			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+				<p className="text-red-500">{paramsError}</p>
+			</div>
+		);
+	}
 
 	if (loading) {
 		return (

@@ -1,8 +1,8 @@
 import js from "@eslint/js";
+import { defineConfig, globalIgnores } from "eslint/config";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
-import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import ts from "typescript-eslint";
 
@@ -12,7 +12,7 @@ export default defineConfig(
 	ts.configs.recommended,
 	react.configs.flat.recommended,
 	react.configs.flat["jsx-runtime"],
-	reactHooks.configs["recommended-latest"],
+	reactHooks.configs.flat["recommended-latest"],
 	jsxA11y.flatConfigs.recommended,
 	{
 		languageOptions: {
