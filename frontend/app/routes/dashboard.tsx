@@ -5,11 +5,9 @@ import { createApiClient } from "../api/client";
 import BorderedContainerWithCaption from "../components/BorderedContainerWithCaption";
 import NavigateLink from "../components/NavigateLink";
 import UserIcon from "../components/UserIcon";
-import { BASE_PATH } from "../config";
+import { APP_NAME, BASE_PATH } from "../config";
 
-export const meta: MetaFunction = () => [
-	{ title: "Dashboard | iOSDC Japan 2025 Albatross" },
-];
+export const meta: MetaFunction = () => [{ title: `Dashboard | ${APP_NAME}` }];
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const { user, token } = await ensureUserLoggedIn(request);

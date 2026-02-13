@@ -8,10 +8,9 @@ import { ensureUserNotLoggedIn, login } from "../.server/auth";
 import BorderedContainer from "../components/BorderedContainer";
 import InputText from "../components/InputText";
 import SubmitButton from "../components/SubmitButton";
+import { APP_NAME } from "../config";
 
-export const meta: MetaFunction = () => [
-	{ title: "Login | iOSDC Japan 2025 Albatross" },
-];
+export const meta: MetaFunction = () => [{ title: `Login | ${APP_NAME}` }];
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	return await ensureUserNotLoggedIn(request);

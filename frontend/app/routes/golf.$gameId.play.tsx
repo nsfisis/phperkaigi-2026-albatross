@@ -5,12 +5,13 @@ import { redirect, useLoaderData } from "react-router";
 import { ensureUserLoggedIn } from "../.server/auth";
 import { ApiClientContext, createApiClient } from "../api/client";
 import GolfPlayApp from "../components/GolfPlayApp";
+import { APP_NAME } from "../config";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
 	{
 		title: data
-			? `Golf Playing ${data.game.display_name} | iOSDC Japan 2025 Albatross`
-			: "Golf Playing | iOSDC Japan 2025 Albatross",
+			? `Golf Playing ${data.game.display_name} | ${APP_NAME}`
+			: `Golf Playing | ${APP_NAME}`,
 	},
 ];
 

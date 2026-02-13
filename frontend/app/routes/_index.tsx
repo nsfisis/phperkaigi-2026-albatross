@@ -2,11 +2,9 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { ensureUserNotLoggedIn } from "../.server/auth";
 import BorderedContainer from "../components/BorderedContainer";
 import NavigateLink from "../components/NavigateLink";
-import { BASE_PATH } from "../config";
+import { APP_NAME, BASE_PATH } from "../config";
 
-export const meta: MetaFunction = () => [
-	{ title: "iOSDC Japan 2025 Albatross" },
-];
+export const meta: MetaFunction = () => [{ title: APP_NAME }];
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	await ensureUserNotLoggedIn(request);

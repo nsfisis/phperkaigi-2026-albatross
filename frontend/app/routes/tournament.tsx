@@ -5,10 +5,9 @@ import { createApiClient } from "../api/client";
 import type { components } from "../api/schema";
 import BorderedContainer from "../components/BorderedContainer";
 import UserIcon from "../components/UserIcon";
+import { APP_NAME } from "../config";
 
-export const meta: MetaFunction = () => [
-	{ title: "Tournament | iOSDC Japan 2025 Albatross" },
-];
+export const meta: MetaFunction = () => [{ title: `Tournament | ${APP_NAME}` }];
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const { token } = await ensureUserLoggedIn(request);
