@@ -1,86 +1,11 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData } from "react-router";
-import { ensureUserLoggedIn } from "../.server/auth";
+import { useEffect, useState } from "react";
 import { createApiClient } from "../api/client";
 import type { components } from "../api/schema";
+import { getToken } from "../auth";
 import BorderedContainer from "../components/BorderedContainer";
 import UserIcon from "../components/UserIcon";
 import { APP_NAME } from "../config";
-
-export const meta: MetaFunction = () => [{ title: `Tournament | ${APP_NAME}` }];
-
-export async function loader({ request }: LoaderFunctionArgs) {
-	const { token } = await ensureUserLoggedIn(request);
-	const apiClient = createApiClient(token);
-
-	const url = new URL(request.url);
-	const game1Param = url.searchParams.get("game1");
-	const game2Param = url.searchParams.get("game2");
-	const game3Param = url.searchParams.get("game3");
-	const game4Param = url.searchParams.get("game4");
-	const game5Param = url.searchParams.get("game5");
-	const player1Param = url.searchParams.get("player1");
-	const player2Param = url.searchParams.get("player2");
-	const player3Param = url.searchParams.get("player3");
-	const player4Param = url.searchParams.get("player4");
-	const player5Param = url.searchParams.get("player5");
-	const player6Param = url.searchParams.get("player6");
-
-	if (!game1Param || !game2Param || !game3Param || !game4Param || !game5Param) {
-		throw new Response(
-			"Missing required query parameters: game1, game2, game3, game4, game5",
-			{
-				status: 400,
-			},
-		);
-	}
-	if (
-		!player1Param ||
-		!player2Param ||
-		!player3Param ||
-		!player4Param ||
-		!player5Param ||
-		!player6Param
-	) {
-		throw new Response(
-			"Missing required query parameters: player1, player2, player3, player4, player5, player6",
-			{
-				status: 400,
-			},
-		);
-	}
-
-	const game1 = Number(game1Param);
-	const game2 = Number(game2Param);
-	const game3 = Number(game3Param);
-	const game4 = Number(game4Param);
-	const game5 = Number(game5Param);
-
-	if (!game1 || !game2 || !game3 || !game4 || !game5) {
-		throw new Response("Invalid game IDs: must be positive integers", {
-			status: 400,
-		});
-	}
-
-	const { tournament } = await apiClient.getTournament(
-		game1,
-		game2,
-		game3,
-		game4,
-		game5,
-	);
-	return {
-		tournament,
-		playerIDs: [
-			Number(player1Param),
-			Number(player2Param),
-			Number(player3Param),
-			Number(player4Param),
-			Number(player5Param),
-			Number(player6Param),
-		],
-	};
-}
+import { usePageTitle } from "../hooks/usePageTitle";
 
 type TournamentMatch = components["schemas"]["TournamentMatch"];
 type User = components["schemas"]["User"];
@@ -253,8 +178,8 @@ function BranchR2({ className = "" }: { className?: string }) {
 
 function getPlayer(match: TournamentMatch, playerID: number): User | null {
 	if (match.player1?.user_id === playerID) return match.player1;
-	else if (match.player2?.user_id === playerID) return match.player2;
-	else return null;
+	if (match.player2?.user_id === playerID) return match.player2;
+	return null;
 }
 
 function getScore(match: TournamentMatch, playerIDs: number[]): number | null {
@@ -262,21 +187,85 @@ function getScore(match: TournamentMatch, playerIDs: number[]): number | null {
 		return match.player1_score ?? null;
 	if (match.player2 && playerIDs.includes(match.player2.user_id))
 		return match.player2_score ?? null;
-	else return null;
+	return null;
 }
 
 function getBorderColor(match: TournamentMatch, playerIDs: number[]): string {
 	if (!match.winner) {
 		return "border-black";
-	} else if (playerIDs.includes(match.winner)) {
-		return "border-pink-700";
-	} else {
-		return "border-gray-400";
 	}
+	if (playerIDs.includes(match.winner)) {
+		return "border-pink-700";
+	}
+	return "border-gray-400";
 }
 
-export default function Tournament() {
-	const { tournament, playerIDs } = useLoaderData<typeof loader>();
+export default function TournamentPage() {
+	usePageTitle(`Tournament | ${APP_NAME}`);
+
+	const [tournament, setTournament] = useState<{
+		matches: TournamentMatch[];
+	} | null>(null);
+	const [playerIDs, setPlayerIDs] = useState<number[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const game1 = Number(params.get("game1"));
+		const game2 = Number(params.get("game2"));
+		const game3 = Number(params.get("game3"));
+		const game4 = Number(params.get("game4"));
+		const game5 = Number(params.get("game5"));
+
+		if (!game1 || !game2 || !game3 || !game4 || !game5) {
+			setError("Missing or invalid game parameters");
+			setLoading(false);
+			return;
+		}
+
+		const pIDs = [
+			Number(params.get("player1")),
+			Number(params.get("player2")),
+			Number(params.get("player3")),
+			Number(params.get("player4")),
+			Number(params.get("player5")),
+			Number(params.get("player6")),
+		];
+
+		if (pIDs.some((id) => !id)) {
+			setError("Missing or invalid player parameters");
+			setLoading(false);
+			return;
+		}
+
+		setPlayerIDs(pIDs);
+
+		const token = getToken();
+		if (!token) return;
+		const apiClient = createApiClient(token);
+		apiClient
+			.getTournament(game1, game2, game3, game4, game5)
+			.then(({ tournament }) => setTournament(tournament))
+			.catch(() => setError("Failed to load tournament"))
+			.finally(() => setLoading(false));
+	}, []);
+
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+				<p className="text-gray-500">Loading...</p>
+			</div>
+		);
+	}
+
+	if (error || !tournament) {
+		return (
+			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+				<p className="text-red-500">{error || "Failed to load tournament"}</p>
+			</div>
+		);
+	}
 
 	const match1 = tournament.matches[0]!;
 	const match2 = tournament.matches[1]!;

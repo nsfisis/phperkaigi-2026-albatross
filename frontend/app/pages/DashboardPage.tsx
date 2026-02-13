@@ -1,38 +1,59 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Form, useLoaderData } from "react-router";
-import { ensureUserLoggedIn } from "../.server/auth";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { createApiClient } from "../api/client";
+import type { components } from "../api/schema";
+import { getToken } from "../auth";
 import BorderedContainerWithCaption from "../components/BorderedContainerWithCaption";
 import NavigateLink from "../components/NavigateLink";
 import UserIcon from "../components/UserIcon";
 import { APP_NAME, BASE_PATH } from "../config";
+import { useAuth } from "../hooks/useAuth";
+import { usePageTitle } from "../hooks/usePageTitle";
 
-export const meta: MetaFunction = () => [{ title: `Dashboard | ${APP_NAME}` }];
+type Game = components["schemas"]["Game"];
 
-export async function loader({ request }: LoaderFunctionArgs) {
-	const { user, token } = await ensureUserLoggedIn(request);
-	const apiClient = createApiClient(token);
+export default function DashboardPage() {
+	usePageTitle(`Dashboard | ${APP_NAME}`);
 
-	const { games } = await apiClient.getGames();
-	return {
-		user,
-		games,
-	};
-}
+	const { user, logout } = useAuth();
+	const [, navigate] = useLocation();
 
-export default function Dashboard() {
-	const { user, games } = useLoaderData<typeof loader>()!;
+	const [games, setGames] = useState<Game[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const token = getToken();
+		if (!token) return;
+		const apiClient = createApiClient(token);
+		apiClient
+			.getGames()
+			.then(({ games }) => setGames(games))
+			.finally(() => setLoading(false));
+	}, []);
+
+	function handleLogout() {
+		logout();
+		navigate("/");
+	}
+
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+				<p className="text-gray-500">Loading...</p>
+			</div>
+		);
+	}
 
 	return (
 		<div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center gap-4">
-			{user.icon_path && (
+			{user?.icon_path && (
 				<UserIcon
 					iconPath={user.icon_path}
 					displayName={user.display_name}
 					className="w-24 h-24"
 				/>
 			)}
-			<h1 className="text-3xl font-bold text-gray-800">{user.display_name}</h1>
+			<h1 className="text-3xl font-bold text-gray-800">{user?.display_name}</h1>
 			<BorderedContainerWithCaption caption="試合一覧">
 				<div className="px-4">
 					{games.length === 0 ? (
@@ -63,18 +84,17 @@ export default function Dashboard() {
 					)}
 				</div>
 			</BorderedContainerWithCaption>
-			<Form method="post" action="/logout">
-				<button
-					type="submit"
-					className="px-4 py-2 bg-red-500 text-white rounded-sm transition duration-300 hover:bg-red-700 focus:ring-3 focus:ring-red-400 focus:outline-hidden"
-				>
-					ログアウト
-				</button>
-			</Form>
-			{user.is_admin && (
+			<button
+				type="button"
+				onClick={handleLogout}
+				className="px-4 py-2 bg-red-500 text-white rounded-sm transition duration-300 hover:bg-red-700 focus:ring-3 focus:ring-red-400 focus:outline-hidden"
+			>
+				ログアウト
+			</button>
+			{user?.is_admin && (
 				<a
 					href={
-						process.env.NODE_ENV === "development"
+						import.meta.env.DEV
 							? `http://localhost:8004${BASE_PATH}admin/dashboard`
 							: `${BASE_PATH}admin/dashboard`
 					}

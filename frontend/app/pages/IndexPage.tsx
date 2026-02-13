@@ -1,17 +1,11 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { ensureUserNotLoggedIn } from "../.server/auth";
 import BorderedContainer from "../components/BorderedContainer";
 import NavigateLink from "../components/NavigateLink";
 import { APP_NAME, BASE_PATH } from "../config";
+import { usePageTitle } from "../hooks/usePageTitle";
 
-export const meta: MetaFunction = () => [{ title: APP_NAME }];
+export default function IndexPage() {
+	usePageTitle(APP_NAME);
 
-export async function loader({ request }: LoaderFunctionArgs) {
-	await ensureUserNotLoggedIn(request);
-	return null;
-}
-
-export default function Index() {
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-y-6">
 			<img
