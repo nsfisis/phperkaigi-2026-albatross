@@ -1,5 +1,5 @@
 {
-	"name": "iosdc-japan-2025-albatross-worker",
+	"name": "albatross-2026-worker-php",
 	"private": true,
 	"type": "module",
 	"main": "index.mjs",

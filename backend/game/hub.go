@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/taskqueue"
+	"albatross-2026-backend/db"
+	"albatross-2026-backend/taskqueue"
 )
 
 type Hub struct {

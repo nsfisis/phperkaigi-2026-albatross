@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/fortee"
+	"albatross-2026-backend/db"
+	"albatross-2026-backend/fortee"
 )
 
 func FetchIcon(

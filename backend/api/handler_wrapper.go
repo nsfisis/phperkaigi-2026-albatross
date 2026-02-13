@@ -7,8 +7,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/auth"
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
+	"albatross-2026-backend/auth"
+	"albatross-2026-backend/db"
 )
 
 var _ StrictServerInterface = (*HandlerWrapper)(nil)

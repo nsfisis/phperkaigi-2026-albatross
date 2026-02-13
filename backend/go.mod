@@ -1,4 +1,4 @@
-module github.com/nsfisis/iosdc-japan-2025-albatross/backend
+module albatross-2026-backend
 
 go 1.23.6
 

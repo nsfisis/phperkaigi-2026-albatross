@@ -1,4 +1,4 @@
-module github.com/nsfisis/iosdc-japan-2025-albatross/worker/swift
+module albatross-2026-worker-swift
 
 go 1.23.6
 

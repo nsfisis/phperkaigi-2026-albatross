@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/nsfisis/iosdc-japan-2025-albatross/backend/db"
+	"albatross-2026-backend/db"
 )
 
 var (
