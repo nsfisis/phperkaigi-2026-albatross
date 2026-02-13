@@ -9,9 +9,9 @@
 		"ignoreUnknown": false,
 		"ignore": [
 			"./.cache",
-			"./build",
 			"./app/api/schema.d.ts",
-			"./app/shiki.bundle.ts"
+			"./app/shiki.bundle.ts",
+			"./dist"
 		]
 	},
 	"formatter": {

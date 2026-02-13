@@ -3,8 +3,9 @@ import { createContext } from "react";
 import { API_BASE_PATH } from "../config";
 import type { paths } from "./schema";
 
-const apiOrigin = import.meta.env.VITE_API_BASE_URL
-	?? (import.meta.env.DEV ? "http://localhost:8004" : "");
+const apiOrigin =
+	import.meta.env.VITE_API_BASE_URL ??
+	(import.meta.env.DEV ? "http://localhost:8004" : "");
 
 const client = createClient<paths>({
 	baseUrl: `${apiOrigin}${API_BASE_PATH}`,
