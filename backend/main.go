@@ -61,7 +61,7 @@ func main() {
 	e := echo.New()
 	e.Renderer = admin.NewRenderer()
 
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 
 	taskQueue := taskqueue.NewQueue("task-db:6379")
