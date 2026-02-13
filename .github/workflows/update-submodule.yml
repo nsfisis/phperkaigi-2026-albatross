@@ -1,7 +1,7 @@
 name: Update submodule
 on:
   push:
-    branches: [main]
+    branches: [disable-temporarily]
 jobs:
   update-submodule:
     runs-on: ubuntu-latest
