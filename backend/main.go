@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	oapimiddleware "github.com/oapi-codegen/echo-middleware"
+	"golang.org/x/time/rate"
 
 	"albatross-2026-backend/admin"
 	"albatross-2026-backend/api"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 	"albatross-2026-backend/game"
+	"albatross-2026-backend/ratelimit"
 	"albatross-2026-backend/taskqueue"
 )
 
@@ -66,7 +69,10 @@ func main() {
 
 	gameHub := game.NewGameHub(queries, taskQueue, workerServer)
 
+	loginRL := ratelimit.NewIPRateLimiter(rate.Every(time.Minute/5), 5)
+
 	apiGroup := e.Group(conf.BasePath + "api")
+	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
 	apiHandler := api.NewHandler(queries, gameHub)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
