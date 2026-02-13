@@ -14,17 +14,9 @@ ENV ALBATROSS_BASE_PATH="$ALBATROSS_BASE_PATH"
 RUN npm run build
 
 ################################################################################
-FROM node:22.14
+FROM nginx:1.27-alpine
 
-WORKDIR /app
-ENV NODE_ENV=production
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY package.json package-lock.json .
-RUN npm install --omit=dev
-
-COPY --from=builder /app/build ./build
-
-ENV HOST="$ALBATROSS_HOST"
-ENV PORT=80
 EXPOSE 80
-CMD ["npm", "run", "start"]
