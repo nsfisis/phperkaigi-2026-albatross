@@ -1,0 +1,5 @@
+check:
+    npm run check
+
+ci:
+    npx biome ci .

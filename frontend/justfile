@@ -1,0 +1,7 @@
+check:
+    npm run check
+
+ci:
+    npx biome ci .
+    npx tsc --noEmit
+    npx eslint .
