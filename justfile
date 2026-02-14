@@ -4,6 +4,7 @@ default: down build up
 
 build:
     {{ docker_compose }} build
+    cd typespec; npm install
     cd frontend; npm install
 
 up:
@@ -48,6 +49,7 @@ initdb:
     just psql-query < ./backend/fixtures/dev.sql
 
 gen:
+    cd typespec; npm run build
     cd backend; just gen
     cd frontend; npm run openapi-typescript
 

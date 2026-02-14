@@ -131,17 +131,13 @@ func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) 
 			user, ok := GetJWTClaimsFromContext(ctx)
 			if !ok {
 				return {{ .Name }}401JSONResponse{
-					UnauthorizedJSONResponse: UnauthorizedJSONResponse{
-						Message: "Unauthorized",
-					},
+					Message: "Unauthorized",
 				}, nil
 			}
 			{{ if .RequiresAdminRole -}}
 				if !user.IsAdmin {
 					return {{ .Name }}403JSONResponse{
-						ForbiddenJSONResponse: ForbiddenJSONResponse{
-							Message: "Forbidden",
-						},
+						Message: "Forbidden",
 					}, nil
 				}
 			{{ end -}}

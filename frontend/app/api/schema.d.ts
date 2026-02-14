@@ -4,57 +4,6 @@
  */
 
 export interface paths {
-    "/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** User login */
-        post: operations["postLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** User logout */
-        post: operations["postLogout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current user */
-        get: operations["getMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/games": {
         parameters: {
             query?: never;
@@ -62,7 +11,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List games */
         get: operations["getGames"];
         put?: never;
         post?: never;
@@ -79,25 +27,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a game */
         get: operations["getGame"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/games/{game_id}/play/latest_state": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the latest execution result for player */
-        get: operations["getGamePlayLatestState"];
         put?: never;
         post?: never;
         delete?: never;
@@ -115,8 +45,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post the latest code */
         post: operations["postGamePlayCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/games/{game_id}/play/latest_state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGamePlayLatestState"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -132,25 +77,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit the answer */
         post: operations["postGamePlaySubmit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/games/{game_id}/watch/ranking": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the latest player ranking */
-        get: operations["getGameWatchRanking"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -164,8 +91,71 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get all the latest game states of the main players */
         get: operations["getGameWatchLatestStates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/games/{game_id}/watch/ranking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGameWatchRanking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMe"];
         put?: never;
         post?: never;
         delete?: never;
@@ -181,7 +171,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get tournament bracket data */
         get: operations["getTournament"];
         put?: never;
         post?: never;
@@ -196,217 +185,71 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Error: {
-            /** @example Invalid request */
             message: string;
         };
-        User: {
-            /** @example 123 */
-            user_id: number;
-            /** @example john */
-            username: string;
-            /** @example John Doe */
-            display_name: string;
-            /** @example /images/john.jpg */
-            icon_path?: string;
-            /** @example false */
-            is_admin: boolean;
-            /** @example staff */
-            label: string | null;
-        };
+        /** @enum {string} */
+        ExecutionStatus: "none" | "running" | "success" | "wrong_answer" | "timeout" | "compile_error" | "runtime_error" | "internal_error";
         Game: {
-            /** @example 1 */
             game_id: number;
-            /**
-             * @example 1v1
-             * @enum {string}
-             */
-            game_type: "1v1" | "multiplayer";
-            /** @example true */
+            game_type: components["schemas"]["GameType"];
             is_public: boolean;
-            /** @example Game 1 */
             display_name: string;
-            /** @example 360 */
             duration_seconds: number;
-            /** @example 946684800 */
             started_at?: number;
             problem: components["schemas"]["Problem"];
             main_players: components["schemas"]["User"][];
         };
-        Problem: {
-            /** @example 1 */
-            problem_id: number;
-            /** @example Problem 1 */
-            title: string;
-            /** @example This is a problem */
-            description: string;
-            /**
-             * @example php
-             * @enum {string}
-             */
-            language: "php" | "swift";
-            /** @example echo 'hello world'; */
-            sample_code: string;
-        };
-        /**
-         * @example success
-         * @enum {string}
-         */
-        ExecutionStatus: "none" | "running" | "success" | "wrong_answer" | "timeout" | "compile_error" | "runtime_error" | "internal_error";
+        /** @enum {string} */
+        GameType: "1v1" | "multiplayer";
         LatestGameState: {
-            /** @example echo 'hello world'; */
             code: string;
-            /** @example 100 */
             score: number | null;
-            /** @example 946684800 */
             best_score_submitted_at: number | null;
             status: components["schemas"]["ExecutionStatus"];
         };
+        Problem: {
+            problem_id: number;
+            title: string;
+            description: string;
+            language: components["schemas"]["ProblemLanguage"];
+            sample_code: string;
+        };
+        /** @enum {string} */
+        ProblemLanguage: "php" | "swift";
         RankingEntry: {
             player: components["schemas"]["User"];
-            /** @example 100 */
             score: number;
-            /** @example 946684800 */
             submitted_at: number;
-            /** @example echo 'hello world'; */
             code: string | null;
         };
         Tournament: {
             matches: components["schemas"]["TournamentMatch"][];
         };
         TournamentMatch: {
-            /** @example 1 */
             game_id: number;
             player1?: components["schemas"]["User"];
             player2?: components["schemas"]["User"];
-            /** @example 1 */
             player1_score?: number;
-            /** @example 1 */
             player2_score?: number;
-            /** @example 1 */
             winner?: number;
         };
-    };
-    responses: {
-        /** @description Bad request */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Unauthorized */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Forbidden */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Not found */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
+        User: {
+            user_id: number;
+            username: string;
+            display_name: string;
+            icon_path?: string;
+            is_admin: boolean;
+            label: string | null;
         };
     };
-    parameters: {
-        path_game_id: number;
-    };
+    responses: never;
+    parameters: never;
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    postLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @example john */
-                    username: string;
-                    /** @example password123 */
-                    password: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Successfully authenticated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postLogout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successfully logged out */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current user info */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
     getGames: {
         parameters: {
             query?: never;
@@ -416,7 +259,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of games */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -427,8 +270,24 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getGame: {
@@ -436,13 +295,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                game_id: components["parameters"]["path_game_id"];
+                game_id: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description A game */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -453,9 +312,86 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postGamePlayCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getGamePlayLatestState: {
@@ -463,13 +399,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                game_id: components["parameters"]["path_game_id"];
+                game_id: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Your latest game state */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -480,39 +416,33 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGamePlayCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                game_id: components["parameters"]["path_game_id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @example echo 'hello world'; */
-                    code: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Successfully updated */
-            200: {
+            /** @description Access is unauthorized. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postGamePlaySubmit: {
@@ -520,56 +450,52 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                game_id: components["parameters"]["path_game_id"];
+                game_id: number;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
                 "application/json": {
-                    /** @example echo 'hello world'; */
                     code: string;
                 };
             };
         };
         responses: {
-            /** @description Successfully submitted */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getGameWatchRanking: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                game_id: components["parameters"]["path_game_id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Player ranking */
-            200: {
+            /** @description Access is unauthorized. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        ranking: components["schemas"]["RankingEntry"][];
-                    };
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getGameWatchLatestStates: {
@@ -577,13 +503,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                game_id: components["parameters"]["path_game_id"];
+                game_id: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description All the latest game states of the main players */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -596,9 +522,180 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGameWatchRanking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ranking: components["schemas"]["RankingEntry"][];
+                    };
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    username: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["User"];
+                    };
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["User"];
+                    };
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getTournament: {
@@ -616,7 +713,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Tournament data */
+            /** @description The request has succeeded. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -627,9 +724,33 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

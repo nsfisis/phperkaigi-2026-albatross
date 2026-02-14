@@ -2,75 +2,15 @@ openapi: 3.0.0
 info:
   title: Albatross internal web API
   version: 0.3.0
+tags: []
 paths:
-  /login:
-    post:
-      operationId: postLogin
-      summary: User login
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                  example: "john"
-                password:
-                  type: string
-                  example: "password123"
-              required:
-                - username
-                - password
-      responses:
-        '200':
-          description: Successfully authenticated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-                required:
-                  - user
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /logout:
-    post:
-      operationId: postLogout
-      summary: User logout
-      responses:
-        '200':
-          description: Successfully logged out
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /me:
-    get:
-      operationId: getMe
-      summary: Get current user
-      responses:
-        '200':
-          description: Current user info
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-                required:
-                  - user
-        '401':
-          $ref: '#/components/responses/Unauthorized'
   /games:
     get:
       operationId: getGames
-      summary: List games
+      parameters: []
       responses:
         '200':
-          description: List of games
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -83,18 +23,29 @@ paths:
                 required:
                   - games
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /games/{game_id}:
     get:
       operationId: getGame
-      summary: Get a game
       parameters:
-        - $ref: '#/components/parameters/path_game_id'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         '200':
-          description: A game
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -105,20 +56,76 @@ paths:
                 required:
                   - game
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /games/{game_id}/play/code:
+    post:
+      operationId: postGamePlayCode
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+              required:
+                - code
   /games/{game_id}/play/latest_state:
     get:
       operationId: getGamePlayLatestState
-      summary: Get the latest execution result for player
       parameters:
-        - $ref: '#/components/parameters/path_game_id'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         '200':
-          description: Your latest game state
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -129,100 +136,76 @@ paths:
                 required:
                   - state
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /games/{game_id}/play/code:
-    post:
-      operationId: postGamePlayCode
-      summary: Post the latest code
-      parameters:
-        - $ref: '#/components/parameters/path_game_id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                code:
-                  type: string
-                  example: "echo 'hello world';"
-              required:
-                - code
-      responses:
-        '200':
-          description: Successfully updated
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /games/{game_id}/play/submit:
-    post:
-      operationId: postGamePlaySubmit
-      summary: Submit the answer
-      parameters:
-        - $ref: '#/components/parameters/path_game_id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                code:
-                  type: string
-                  example: "echo 'hello world';"
-              required:
-                - code
-      responses:
-        '200':
-          description: Successfully submitted
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /games/{game_id}/watch/ranking:
-    get:
-      operationId: getGameWatchRanking
-      summary: Get the latest player ranking
-      parameters:
-        - $ref: '#/components/parameters/path_game_id'
-      responses:
-        '200':
-          description: Player ranking
+          description: Access is unauthorized.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ranking:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/RankingEntry'
-                required:
-                  - ranking
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /games/{game_id}/play/submit:
+    post:
+      operationId: postGamePlaySubmit
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+              required:
+                - code
   /games/{game_id}/watch/latest_states:
     get:
       operationId: getGameWatchLatestStates
-      summary: Get all the latest game states of the main players
       parameters:
-        - $ref: '#/components/parameters/path_game_id'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         '200':
-          description: All the latest game states of the main players
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -235,44 +218,172 @@ paths:
                 required:
                   - states
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /games/{game_id}/watch/ranking:
+    get:
+      operationId: getGameWatchRanking
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ranking:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RankingEntry'
+                required:
+                  - ranking
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /login:
+    post:
+      operationId: postLogin
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                  - user
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - password
+  /logout:
+    post:
+      operationId: postLogout
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /me:
+    get:
+      operationId: getMe
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                  - user
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /tournament:
     get:
       operationId: getTournament
-      summary: Get tournament bracket data
       parameters:
-        - in: query
-          name: game1
+        - name: game1
+          in: query
+          required: true
           schema:
             type: integer
+          explode: false
+        - name: game2
+          in: query
           required: true
-        - in: query
-          name: game2
           schema:
             type: integer
+          explode: false
+        - name: game3
+          in: query
           required: true
-        - in: query
-          name: game3
           schema:
             type: integer
+          explode: false
+        - name: game4
+          in: query
           required: true
-        - in: query
-          name: game4
           schema:
             type: integer
+          explode: false
+        - name: game5
+          in: query
           required: true
-        - in: query
-          name: game5
           schema:
             type: integer
-          required: true
+          explode: false
       responses:
         '200':
-          description: Tournament data
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -283,150 +394,34 @@ paths:
                 required:
                   - tournament
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
-  parameters:
-    path_game_id:
-      in: path
-      name: game_id
-      schema:
-        type: integer
-      required: true
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Unauthorized:
-      description: Unauthorized
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Forbidden:
-      description: Forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    NotFound:
-      description: Not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
   schemas:
     Error:
       type: object
+      required:
+        - message
       properties:
         message:
           type: string
-          example: "Invalid request"
-      required:
-        - message
-    User:
-      type: object
-      properties:
-        user_id:
-          type: integer
-          example: 123
-        username:
-          type: string
-          example: "john"
-        display_name:
-          type: string
-          example: "John Doe"
-        icon_path:
-          type: string
-          example: "/images/john.jpg"
-        is_admin:
-          type: boolean
-          example: false
-        label:
-          type: string
-          nullable: true
-          example: "staff"
-      required:
-        - user_id
-        - username
-        - display_name
-        - is_admin
-        - label
-    Game:
-      type: object
-      properties:
-        game_id:
-          type: integer
-          example: 1
-        game_type:
-          type: string
-          example: "1v1"
-          enum:
-            - 1v1
-            - multiplayer
-        is_public:
-          type: boolean
-          example: true
-        display_name:
-          type: string
-          example: "Game 1"
-        duration_seconds:
-          type: integer
-          example: 360
-        started_at:
-          type: integer
-          example: 946684800
-          x-go-type: int64
-        problem:
-          $ref: '#/components/schemas/Problem'
-        main_players:
-          type: array
-          items:
-            $ref: '#/components/schemas/User'
-      required:
-        - game_id
-        - game_type
-        - is_public
-        - display_name
-        - duration_seconds
-        - problem
-        - main_players
-    Problem:
-      type: object
-      properties:
-        problem_id:
-          type: integer
-          example: 1
-        title:
-          type: string
-          example: "Problem 1"
-        description:
-          type: string
-          example: "This is a problem"
-        language:
-          type: string
-          example: "php"
-          enum:
-            - php
-            - swift
-        sample_code:
-          type: string
-          example: "echo 'hello world';"
-      required:
-        - problem_id
-        - title
-        - description
-        - language
-        - sample_code
     ExecutionStatus:
       type: string
-      example: "success"
       enum:
         - none
         - running
@@ -436,76 +431,147 @@ components:
         - compile_error
         - runtime_error
         - internal_error
+    Game:
+      type: object
+      required:
+        - game_id
+        - game_type
+        - is_public
+        - display_name
+        - duration_seconds
+        - problem
+        - main_players
+      properties:
+        game_id:
+          type: integer
+        game_type:
+          $ref: '#/components/schemas/GameType'
+        is_public:
+          type: boolean
+        display_name:
+          type: string
+        duration_seconds:
+          type: integer
+        started_at:
+          type: integer
+          x-go-type: int64
+        problem:
+          $ref: '#/components/schemas/Problem'
+        main_players:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    GameType:
+      type: string
+      enum:
+        - 1v1
+        - multiplayer
     LatestGameState:
       type: object
-      properties:
-        code:
-          type: string
-          example: "echo 'hello world';"
-        score:
-          type: integer
-          nullable: true
-          example: 100
-        best_score_submitted_at:
-          type: integer
-          nullable: true
-          example: 946684800
-          x-go-type: int64
-        status:
-          $ref: '#/components/schemas/ExecutionStatus'
       required:
         - code
         - score
         - best_score_submitted_at
         - status
-    RankingEntry:
-      type: object
       properties:
-        player:
-          $ref: '#/components/schemas/User'
-        score:
-          type: integer
-          example: 100
-        submitted_at:
-          type: integer
-          example: 946684800
-          x-go-type: int64
         code:
           type: string
+        score:
+          type: integer
           nullable: true
-          example: "echo 'hello world';"
+        best_score_submitted_at:
+          type: integer
+          nullable: true
+          x-go-type: int64
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+    Problem:
+      type: object
+      required:
+        - problem_id
+        - title
+        - description
+        - language
+        - sample_code
+      properties:
+        problem_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        language:
+          $ref: '#/components/schemas/ProblemLanguage'
+        sample_code:
+          type: string
+    ProblemLanguage:
+      type: string
+      enum:
+        - php
+        - swift
+    RankingEntry:
+      type: object
       required:
         - player
         - score
         - submitted_at
         - code
+      properties:
+        player:
+          $ref: '#/components/schemas/User'
+        score:
+          type: integer
+        submitted_at:
+          type: integer
+          x-go-type: int64
+        code:
+          type: string
+          nullable: true
     Tournament:
       type: object
+      required:
+        - matches
       properties:
         matches:
           type: array
           items:
             $ref: '#/components/schemas/TournamentMatch'
-      required:
-        - matches
     TournamentMatch:
       type: object
+      required:
+        - game_id
       properties:
         game_id:
           type: integer
-          example: 1
         player1:
           $ref: '#/components/schemas/User'
         player2:
           $ref: '#/components/schemas/User'
         player1_score:
           type: integer
-          example: 1
         player2_score:
           type: integer
-          example: 1
         winner:
           type: integer
-          example: 1
+    User:
+      type: object
       required:
-        - game_id
+        - user_id
+        - username
+        - display_name
+        - is_admin
+        - label
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        display_name:
+          type: string
+        icon_path:
+          type: string
+        is_admin:
+          type: boolean
+        label:
+          type: string
+          nullable: true

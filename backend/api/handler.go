@@ -53,18 +53,14 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 			msg = "ユーザー名またはパスワードが誤っています"
 		}
 		return PostLogin401JSONResponse{
-			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
-				Message: msg,
-			},
+			Message: msg,
 		}, nil
 	}
 
 	dbUser, err := h.q.GetUserByID(ctx, int32(userID))
 	if err != nil {
 		return PostLogin401JSONResponse{
-			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
-				Message: "ログインに失敗しました",
-			},
+			Message: "ログインに失敗しました",
 		}, nil
 	}
 
@@ -100,9 +96,7 @@ func (h *Handler) GetMe(ctx context.Context, _ GetMeRequestObject, claims *auth.
 	dbUser, err := h.q.GetUserByID(ctx, int32(claims.UserID))
 	if err != nil {
 		return GetMe401JSONResponse{
-			UnauthorizedJSONResponse: UnauthorizedJSONResponse{
-				Message: "Unauthorized",
-			},
+			Message: "Unauthorized",
 		}, nil
 	}
 	return GetMe200JSONResponse{
@@ -157,7 +151,7 @@ func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth
 		}
 		games[i] = Game{
 			GameID:          int(row.GameID),
-			GameType:        GameGameType(row.GameType),
+			GameType:        GameType(row.GameType),
 			IsPublic:        row.IsPublic,
 			DisplayName:     row.DisplayName,
 			DurationSeconds: int(row.DurationSeconds),
@@ -200,18 +194,14 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, use
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return GetGame404JSONResponse{
-				NotFoundJSONResponse: NotFoundJSONResponse{
-					Message: "Game not found",
-				},
+				Message: "Game not found",
 			}, nil
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	if !row.IsPublic && !user.IsAdmin {
 		return GetGame404JSONResponse{
-			NotFoundJSONResponse: NotFoundJSONResponse{
-				Message: "Game not found",
-			},
+			Message: "Game not found",
 		}, nil
 	}
 	var startedAt *int64
@@ -236,7 +226,7 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, use
 	}
 	game := Game{
 		GameID:          int(row.GameID),
-		GameType:        GameGameType(row.GameType),
+		GameType:        GameType(row.GameType),
 		IsPublic:        row.IsPublic,
 		DisplayName:     row.DisplayName,
 		DurationSeconds: int(row.DurationSeconds),
@@ -312,9 +302,7 @@ func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameW
 
 		if int(row.UserID) == user.UserID && !user.IsAdmin {
 			return GetGameWatchLatestStates403JSONResponse{
-				ForbiddenJSONResponse: ForbiddenJSONResponse{
-					Message: "You are one of the main players of this game",
-				},
+				Message: "You are one of the main players of this game",
 			}, nil
 		}
 	}

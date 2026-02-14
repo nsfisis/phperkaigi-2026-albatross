@@ -34,10 +34,10 @@ const (
 	WrongAnswer   ExecutionStatus = "wrong_answer"
 )
 
-// Defines values for GameGameType.
+// Defines values for GameType.
 const (
-	Multiplayer GameGameType = "multiplayer"
-	N1V1        GameGameType = "1v1"
+	Multiplayer GameType = "multiplayer"
+	N1V1        GameType = "1v1"
 )
 
 // Defines values for ProblemLanguage.
@@ -56,18 +56,18 @@ type ExecutionStatus string
 
 // Game defines model for Game.
 type Game struct {
-	DisplayName     string       `json:"display_name"`
-	DurationSeconds int          `json:"duration_seconds"`
-	GameID          int          `json:"game_id"`
-	GameType        GameGameType `json:"game_type"`
-	IsPublic        bool         `json:"is_public"`
-	MainPlayers     []User       `json:"main_players"`
-	Problem         Problem      `json:"problem"`
-	StartedAt       *int64       `json:"started_at,omitempty"`
+	DisplayName     string   `json:"display_name"`
+	DurationSeconds int      `json:"duration_seconds"`
+	GameID          int      `json:"game_id"`
+	GameType        GameType `json:"game_type"`
+	IsPublic        bool     `json:"is_public"`
+	MainPlayers     []User   `json:"main_players"`
+	Problem         Problem  `json:"problem"`
+	StartedAt       *int64   `json:"started_at,omitempty"`
 }
 
-// GameGameType defines model for Game.GameType.
-type GameGameType string
+// GameType defines model for GameType.
+type GameType string
 
 // LatestGameState defines model for LatestGameState.
 type LatestGameState struct {
@@ -86,7 +86,7 @@ type Problem struct {
 	Title       string          `json:"title"`
 }
 
-// ProblemLanguage defines model for Problem.Language.
+// ProblemLanguage defines model for ProblemLanguage.
 type ProblemLanguage string
 
 // RankingEntry defines model for RankingEntry.
@@ -121,21 +121,6 @@ type User struct {
 	UserID      int                       `json:"user_id"`
 	Username    string                    `json:"username"`
 }
-
-// PathGameID defines model for path_game_id.
-type PathGameID = int
-
-// BadRequest defines model for BadRequest.
-type BadRequest = Error
-
-// Forbidden defines model for Forbidden.
-type Forbidden = Error
-
-// NotFound defines model for NotFound.
-type NotFound = Error
-
-// Unauthorized defines model for Unauthorized.
-type Unauthorized = Error
 
 // PostGamePlayCodeJSONBody defines parameters for PostGamePlayCode.
 type PostGamePlayCodeJSONBody struct {
@@ -173,37 +158,37 @@ type PostLoginJSONRequestBody PostLoginJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// List games
+
 	// (GET /games)
 	GetGames(ctx echo.Context) error
-	// Get a game
+
 	// (GET /games/{game_id})
-	GetGame(ctx echo.Context, gameID PathGameID) error
-	// Post the latest code
+	GetGame(ctx echo.Context, gameID int) error
+
 	// (POST /games/{game_id}/play/code)
-	PostGamePlayCode(ctx echo.Context, gameID PathGameID) error
-	// Get the latest execution result for player
+	PostGamePlayCode(ctx echo.Context, gameID int) error
+
 	// (GET /games/{game_id}/play/latest_state)
-	GetGamePlayLatestState(ctx echo.Context, gameID PathGameID) error
-	// Submit the answer
+	GetGamePlayLatestState(ctx echo.Context, gameID int) error
+
 	// (POST /games/{game_id}/play/submit)
-	PostGamePlaySubmit(ctx echo.Context, gameID PathGameID) error
-	// Get all the latest game states of the main players
+	PostGamePlaySubmit(ctx echo.Context, gameID int) error
+
 	// (GET /games/{game_id}/watch/latest_states)
-	GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID) error
-	// Get the latest player ranking
+	GetGameWatchLatestStates(ctx echo.Context, gameID int) error
+
 	// (GET /games/{game_id}/watch/ranking)
-	GetGameWatchRanking(ctx echo.Context, gameID PathGameID) error
-	// User login
+	GetGameWatchRanking(ctx echo.Context, gameID int) error
+
 	// (POST /login)
 	PostLogin(ctx echo.Context) error
-	// User logout
+
 	// (POST /logout)
 	PostLogout(ctx echo.Context) error
-	// Get current user
+
 	// (GET /me)
 	GetMe(ctx echo.Context) error
-	// Get tournament bracket data
+
 	// (GET /tournament)
 	GetTournament(ctx echo.Context, params GetTournamentParams) error
 }
@@ -226,7 +211,7 @@ func (w *ServerInterfaceWrapper) GetGames(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetGame(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -242,7 +227,7 @@ func (w *ServerInterfaceWrapper) GetGame(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) PostGamePlayCode(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -258,7 +243,7 @@ func (w *ServerInterfaceWrapper) PostGamePlayCode(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetGamePlayLatestState(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -274,7 +259,7 @@ func (w *ServerInterfaceWrapper) GetGamePlayLatestState(ctx echo.Context) error 
 func (w *ServerInterfaceWrapper) PostGamePlaySubmit(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -290,7 +275,7 @@ func (w *ServerInterfaceWrapper) PostGamePlaySubmit(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetGameWatchLatestStates(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -306,7 +291,7 @@ func (w *ServerInterfaceWrapper) GetGameWatchLatestStates(ctx echo.Context) erro
 func (w *ServerInterfaceWrapper) GetGameWatchRanking(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "game_id" -------------
-	var gameID PathGameID
+	var gameID int
 
 	err = runtime.BindStyledParameterWithOptions("simple", "game_id", ctx.Param("game_id"), &gameID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -353,35 +338,35 @@ func (w *ServerInterfaceWrapper) GetTournament(ctx echo.Context) error {
 	var params GetTournamentParams
 	// ------------- Required query parameter "game1" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "game1", ctx.QueryParams(), &params.Game1)
+	err = runtime.BindQueryParameter("form", false, true, "game1", ctx.QueryParams(), &params.Game1)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game1: %s", err))
 	}
 
 	// ------------- Required query parameter "game2" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "game2", ctx.QueryParams(), &params.Game2)
+	err = runtime.BindQueryParameter("form", false, true, "game2", ctx.QueryParams(), &params.Game2)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game2: %s", err))
 	}
 
 	// ------------- Required query parameter "game3" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "game3", ctx.QueryParams(), &params.Game3)
+	err = runtime.BindQueryParameter("form", false, true, "game3", ctx.QueryParams(), &params.Game3)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game3: %s", err))
 	}
 
 	// ------------- Required query parameter "game4" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "game4", ctx.QueryParams(), &params.Game4)
+	err = runtime.BindQueryParameter("form", false, true, "game4", ctx.QueryParams(), &params.Game4)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game4: %s", err))
 	}
 
 	// ------------- Required query parameter "game5" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "game5", ctx.QueryParams(), &params.Game5)
+	err = runtime.BindQueryParameter("form", false, true, "game5", ctx.QueryParams(), &params.Game5)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter game5: %s", err))
 	}
@@ -433,14 +418,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 }
 
-type BadRequestJSONResponse Error
-
-type ForbiddenJSONResponse Error
-
-type NotFoundJSONResponse Error
-
-type UnauthorizedJSONResponse Error
-
 type GetGamesRequestObject struct {
 }
 
@@ -459,7 +436,7 @@ func (response GetGames200JSONResponse) VisitGetGamesResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGames401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetGames401JSONResponse Error
 
 func (response GetGames401JSONResponse) VisitGetGamesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -468,7 +445,7 @@ func (response GetGames401JSONResponse) VisitGetGamesResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGames403JSONResponse struct{ ForbiddenJSONResponse }
+type GetGames403JSONResponse Error
 
 func (response GetGames403JSONResponse) VisitGetGamesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -478,7 +455,7 @@ func (response GetGames403JSONResponse) VisitGetGamesResponse(w http.ResponseWri
 }
 
 type GetGameRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 }
 
 type GetGameResponseObject interface {
@@ -496,7 +473,7 @@ func (response GetGame200JSONResponse) VisitGetGameResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGame401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetGame401JSONResponse Error
 
 func (response GetGame401JSONResponse) VisitGetGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -505,7 +482,7 @@ func (response GetGame401JSONResponse) VisitGetGameResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGame403JSONResponse struct{ ForbiddenJSONResponse }
+type GetGame403JSONResponse Error
 
 func (response GetGame403JSONResponse) VisitGetGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -514,7 +491,7 @@ func (response GetGame403JSONResponse) VisitGetGameResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGame404JSONResponse struct{ NotFoundJSONResponse }
+type GetGame404JSONResponse Error
 
 func (response GetGame404JSONResponse) VisitGetGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -524,7 +501,7 @@ func (response GetGame404JSONResponse) VisitGetGameResponse(w http.ResponseWrite
 }
 
 type PostGamePlayCodeRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 	Body   *PostGamePlayCodeJSONRequestBody
 }
 
@@ -540,7 +517,7 @@ func (response PostGamePlayCode200Response) VisitPostGamePlayCodeResponse(w http
 	return nil
 }
 
-type PostGamePlayCode401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostGamePlayCode401JSONResponse Error
 
 func (response PostGamePlayCode401JSONResponse) VisitPostGamePlayCodeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -549,7 +526,7 @@ func (response PostGamePlayCode401JSONResponse) VisitPostGamePlayCodeResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostGamePlayCode403JSONResponse struct{ ForbiddenJSONResponse }
+type PostGamePlayCode403JSONResponse Error
 
 func (response PostGamePlayCode403JSONResponse) VisitPostGamePlayCodeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -558,7 +535,7 @@ func (response PostGamePlayCode403JSONResponse) VisitPostGamePlayCodeResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostGamePlayCode404JSONResponse struct{ NotFoundJSONResponse }
+type PostGamePlayCode404JSONResponse Error
 
 func (response PostGamePlayCode404JSONResponse) VisitPostGamePlayCodeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -568,7 +545,7 @@ func (response PostGamePlayCode404JSONResponse) VisitPostGamePlayCodeResponse(w 
 }
 
 type GetGamePlayLatestStateRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 }
 
 type GetGamePlayLatestStateResponseObject interface {
@@ -586,7 +563,7 @@ func (response GetGamePlayLatestState200JSONResponse) VisitGetGamePlayLatestStat
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGamePlayLatestState401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetGamePlayLatestState401JSONResponse Error
 
 func (response GetGamePlayLatestState401JSONResponse) VisitGetGamePlayLatestStateResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -595,7 +572,7 @@ func (response GetGamePlayLatestState401JSONResponse) VisitGetGamePlayLatestStat
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGamePlayLatestState403JSONResponse struct{ ForbiddenJSONResponse }
+type GetGamePlayLatestState403JSONResponse Error
 
 func (response GetGamePlayLatestState403JSONResponse) VisitGetGamePlayLatestStateResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -604,7 +581,7 @@ func (response GetGamePlayLatestState403JSONResponse) VisitGetGamePlayLatestStat
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGamePlayLatestState404JSONResponse struct{ NotFoundJSONResponse }
+type GetGamePlayLatestState404JSONResponse Error
 
 func (response GetGamePlayLatestState404JSONResponse) VisitGetGamePlayLatestStateResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -614,7 +591,7 @@ func (response GetGamePlayLatestState404JSONResponse) VisitGetGamePlayLatestStat
 }
 
 type PostGamePlaySubmitRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 	Body   *PostGamePlaySubmitJSONRequestBody
 }
 
@@ -630,7 +607,7 @@ func (response PostGamePlaySubmit200Response) VisitPostGamePlaySubmitResponse(w 
 	return nil
 }
 
-type PostGamePlaySubmit401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostGamePlaySubmit401JSONResponse Error
 
 func (response PostGamePlaySubmit401JSONResponse) VisitPostGamePlaySubmitResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -639,7 +616,7 @@ func (response PostGamePlaySubmit401JSONResponse) VisitPostGamePlaySubmitRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostGamePlaySubmit403JSONResponse struct{ ForbiddenJSONResponse }
+type PostGamePlaySubmit403JSONResponse Error
 
 func (response PostGamePlaySubmit403JSONResponse) VisitPostGamePlaySubmitResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -648,7 +625,7 @@ func (response PostGamePlaySubmit403JSONResponse) VisitPostGamePlaySubmitRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostGamePlaySubmit404JSONResponse struct{ NotFoundJSONResponse }
+type PostGamePlaySubmit404JSONResponse Error
 
 func (response PostGamePlaySubmit404JSONResponse) VisitPostGamePlaySubmitResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -658,7 +635,7 @@ func (response PostGamePlaySubmit404JSONResponse) VisitPostGamePlaySubmitRespons
 }
 
 type GetGameWatchLatestStatesRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 }
 
 type GetGameWatchLatestStatesResponseObject interface {
@@ -676,7 +653,7 @@ func (response GetGameWatchLatestStates200JSONResponse) VisitGetGameWatchLatestS
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchLatestStates401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetGameWatchLatestStates401JSONResponse Error
 
 func (response GetGameWatchLatestStates401JSONResponse) VisitGetGameWatchLatestStatesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -685,7 +662,7 @@ func (response GetGameWatchLatestStates401JSONResponse) VisitGetGameWatchLatestS
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchLatestStates403JSONResponse struct{ ForbiddenJSONResponse }
+type GetGameWatchLatestStates403JSONResponse Error
 
 func (response GetGameWatchLatestStates403JSONResponse) VisitGetGameWatchLatestStatesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -694,7 +671,7 @@ func (response GetGameWatchLatestStates403JSONResponse) VisitGetGameWatchLatestS
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchLatestStates404JSONResponse struct{ NotFoundJSONResponse }
+type GetGameWatchLatestStates404JSONResponse Error
 
 func (response GetGameWatchLatestStates404JSONResponse) VisitGetGameWatchLatestStatesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -704,7 +681,7 @@ func (response GetGameWatchLatestStates404JSONResponse) VisitGetGameWatchLatestS
 }
 
 type GetGameWatchRankingRequestObject struct {
-	GameID PathGameID `json:"game_id"`
+	GameID int `json:"game_id"`
 }
 
 type GetGameWatchRankingResponseObject interface {
@@ -722,7 +699,7 @@ func (response GetGameWatchRanking200JSONResponse) VisitGetGameWatchRankingRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchRanking401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetGameWatchRanking401JSONResponse Error
 
 func (response GetGameWatchRanking401JSONResponse) VisitGetGameWatchRankingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -731,7 +708,7 @@ func (response GetGameWatchRanking401JSONResponse) VisitGetGameWatchRankingRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchRanking403JSONResponse struct{ ForbiddenJSONResponse }
+type GetGameWatchRanking403JSONResponse Error
 
 func (response GetGameWatchRanking403JSONResponse) VisitGetGameWatchRankingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -740,7 +717,7 @@ func (response GetGameWatchRanking403JSONResponse) VisitGetGameWatchRankingRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameWatchRanking404JSONResponse struct{ NotFoundJSONResponse }
+type GetGameWatchRanking404JSONResponse Error
 
 func (response GetGameWatchRanking404JSONResponse) VisitGetGameWatchRankingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -768,7 +745,7 @@ func (response PostLogin200JSONResponse) VisitPostLoginResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostLogin401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostLogin401JSONResponse Error
 
 func (response PostLogin401JSONResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -792,7 +769,7 @@ func (response PostLogout200Response) VisitPostLogoutResponse(w http.ResponseWri
 	return nil
 }
 
-type PostLogout401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostLogout401JSONResponse Error
 
 func (response PostLogout401JSONResponse) VisitPostLogoutResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -819,7 +796,7 @@ func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetMe401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetMe401JSONResponse Error
 
 func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -847,7 +824,7 @@ func (response GetTournament200JSONResponse) VisitGetTournamentResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTournament401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetTournament401JSONResponse Error
 
 func (response GetTournament401JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -856,7 +833,7 @@ func (response GetTournament401JSONResponse) VisitGetTournamentResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTournament403JSONResponse struct{ ForbiddenJSONResponse }
+type GetTournament403JSONResponse Error
 
 func (response GetTournament403JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -865,7 +842,7 @@ func (response GetTournament403JSONResponse) VisitGetTournamentResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTournament404JSONResponse struct{ NotFoundJSONResponse }
+type GetTournament404JSONResponse Error
 
 func (response GetTournament404JSONResponse) VisitGetTournamentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -876,37 +853,37 @@ func (response GetTournament404JSONResponse) VisitGetTournamentResponse(w http.R
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// List games
+
 	// (GET /games)
 	GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error)
-	// Get a game
+
 	// (GET /games/{game_id})
 	GetGame(ctx context.Context, request GetGameRequestObject) (GetGameResponseObject, error)
-	// Post the latest code
+
 	// (POST /games/{game_id}/play/code)
 	PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject) (PostGamePlayCodeResponseObject, error)
-	// Get the latest execution result for player
+
 	// (GET /games/{game_id}/play/latest_state)
 	GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject) (GetGamePlayLatestStateResponseObject, error)
-	// Submit the answer
+
 	// (POST /games/{game_id}/play/submit)
 	PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject) (PostGamePlaySubmitResponseObject, error)
-	// Get all the latest game states of the main players
+
 	// (GET /games/{game_id}/watch/latest_states)
 	GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error)
-	// Get the latest player ranking
+
 	// (GET /games/{game_id}/watch/ranking)
 	GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject) (GetGameWatchRankingResponseObject, error)
-	// User login
+
 	// (POST /login)
 	PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error)
-	// User logout
+
 	// (POST /logout)
 	PostLogout(ctx context.Context, request PostLogoutRequestObject) (PostLogoutResponseObject, error)
-	// Get current user
+
 	// (GET /me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
-	// Get tournament bracket data
+
 	// (GET /tournament)
 	GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error)
 }
@@ -947,7 +924,7 @@ func (sh *strictHandler) GetGames(ctx echo.Context) error {
 }
 
 // GetGame operation middleware
-func (sh *strictHandler) GetGame(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) GetGame(ctx echo.Context, gameID int) error {
 	var request GetGameRequestObject
 
 	request.GameID = gameID
@@ -972,7 +949,7 @@ func (sh *strictHandler) GetGame(ctx echo.Context, gameID PathGameID) error {
 }
 
 // PostGamePlayCode operation middleware
-func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID int) error {
 	var request PostGamePlayCodeRequestObject
 
 	request.GameID = gameID
@@ -1003,7 +980,7 @@ func (sh *strictHandler) PostGamePlayCode(ctx echo.Context, gameID PathGameID) e
 }
 
 // GetGamePlayLatestState operation middleware
-func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID int) error {
 	var request GetGamePlayLatestStateRequestObject
 
 	request.GameID = gameID
@@ -1028,7 +1005,7 @@ func (sh *strictHandler) GetGamePlayLatestState(ctx echo.Context, gameID PathGam
 }
 
 // PostGamePlaySubmit operation middleware
-func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID int) error {
 	var request PostGamePlaySubmitRequestObject
 
 	request.GameID = gameID
@@ -1059,7 +1036,7 @@ func (sh *strictHandler) PostGamePlaySubmit(ctx echo.Context, gameID PathGameID)
 }
 
 // GetGameWatchLatestStates operation middleware
-func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID int) error {
 	var request GetGameWatchLatestStatesRequestObject
 
 	request.GameID = gameID
@@ -1084,7 +1061,7 @@ func (sh *strictHandler) GetGameWatchLatestStates(ctx echo.Context, gameID PathG
 }
 
 // GetGameWatchRanking operation middleware
-func (sh *strictHandler) GetGameWatchRanking(ctx echo.Context, gameID PathGameID) error {
+func (sh *strictHandler) GetGameWatchRanking(ctx echo.Context, gameID int) error {
 	var request GetGameWatchRankingRequestObject
 
 	request.GameID = gameID
@@ -1211,33 +1188,28 @@ func (sh *strictHandler) GetTournament(ctx echo.Context, params GetTournamentPar
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"/wYAAP//Hl9qBRMoAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
