@@ -51,7 +51,8 @@ services:
 
   worker-php:
     build:
-      context: ./worker/php
+      context: .
+      dockerfile: worker/php/Dockerfile
     expose:
       - 80
     env_file: [.env]

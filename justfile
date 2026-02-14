@@ -4,12 +4,11 @@ default: down build up
 
 build:
     {{ docker_compose }} build
-    cd typespec; npm install
-    cd frontend; npm install
+    npm install
 
 up:
     {{ docker_compose }} up -d
-    cd frontend; npm run dev
+    npm -w frontend run dev
 
 down:
     {{ docker_compose }} down --remove-orphans
@@ -49,11 +48,11 @@ initdb:
     just psql-query < ./backend/fixtures/dev.sql
 
 gen:
-    cd typespec; npm run build
+    npm -w typespec run build
     cd backend; just gen
-    cd frontend; npm run openapi-typescript
+    npm -w frontend run openapi-typescript
 
 check:
     cd backend; just check
     cd worker/swift; just check
-    cd frontend; npm run check
+    npm -w frontend run check

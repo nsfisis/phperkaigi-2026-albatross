@@ -1,0 +1,9 @@
+{
+  "name": "phperkaigi-2026-albatross",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "typespec",
+    "worker/php"
+  ]
+}

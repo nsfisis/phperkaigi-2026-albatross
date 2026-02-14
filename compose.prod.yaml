@@ -16,7 +16,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         ALBATROSS_BASE_PATH: $ALBATROSS_BASE_PATH
     volumes:
@@ -75,7 +76,8 @@ services:
 
   worker-php:
     build:
-      context: ./worker/php
+      context: .
+      dockerfile: worker/php/Dockerfile
     expose:
       - 80
     env_file: [.env]

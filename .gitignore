@@ -1,5 +1,5 @@
 /.env
-/typespec/node_modules/
+node_modules/
 /typespec/tsp-output/
 /typespec/api-server/tsp-output/
 /typespec/fortee/tsp-output/

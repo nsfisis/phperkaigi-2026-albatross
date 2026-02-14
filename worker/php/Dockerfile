@@ -36,7 +36,7 @@ RUN cd php-src && \
     git clean -fd && \
     :
 
-COPY php-wasm.c /src/
+COPY worker/php/php-wasm.c /src/
 
 RUN cd php-src && \
     emcc \
@@ -71,12 +71,13 @@ FROM node:22.14
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=wasm-builder /src/php-wasm.js /src/php-wasm.wasm /app/
-COPY package.json package-lock.json /app/
+COPY --from=wasm-builder /src/php-wasm.js /src/php-wasm.wasm /app/worker/php/
+COPY package.json package-lock.json ./
+COPY worker/php/package.json worker/php/
+RUN npm install -w worker/php --omit=dev
 
-RUN npm install
+COPY worker/php/index.mjs worker/php/exec.mjs worker/php/
 
-COPY index.mjs exec.mjs /app/
-
+WORKDIR /app/worker/php
 ENTRYPOINT ["node", "index.mjs"]
 EXPOSE 80
