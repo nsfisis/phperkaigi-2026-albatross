@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -268,7 +268,7 @@ func (h *Handler) postUserFetchIcon(c echo.Context) error {
 	go func() {
 		err := account.FetchIcon(context.Background(), h.q, int(row.UserID))
 		if err != nil {
-			log.Printf("%v", err)
+			slog.Error("failed to fetch icon", "error", err)
 			// The failure is intentionally ignored. Retry manually if needed.
 		}
 	}()

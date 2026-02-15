@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -93,7 +93,7 @@ func signup(
 	go func() {
 		err := account.FetchIcon(context.Background(), queries, int(userID))
 		if err != nil {
-			log.Printf("%v", err)
+			slog.Error("failed to fetch icon", "error", err)
 			// The failure is intentionally ignored. Retry manually if needed.
 		}
 	}()

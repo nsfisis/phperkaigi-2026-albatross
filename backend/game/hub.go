@@ -2,7 +2,8 @@ package game
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 
@@ -29,7 +30,8 @@ func NewGameHub(q *db.Queries, taskQueue *taskqueue.Queue, taskWorker *taskqueue
 func (hub *Hub) Run() {
 	go func() {
 		if err := hub.taskWorker.Run(); err != nil {
-			log.Fatal(err)
+			slog.Error("task worker failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 

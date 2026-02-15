@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,12 +40,14 @@ func main() {
 	var err error
 	conf, err := config.NewConfigFromEnv()
 	if err != nil {
-		log.Fatalf("Error loading env %v", err)
+		slog.Error("failed to load env", "error", err)
+		os.Exit(1)
 	}
 
 	openAPISpec, err := api.GetSwaggerWithPrefix(conf.BasePath + "api")
 	if err != nil {
-		log.Fatalf("Error loading OpenAPI spec\n: %s", err)
+		slog.Error("failed to load OpenAPI spec", "error", err)
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
@@ -52,7 +55,8 @@ func main() {
 	dbDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", conf.DBHost, conf.DBPort, conf.DBUser, conf.DBPassword, conf.DBName)
 	connPool, err := connectDB(ctx, dbDSN)
 	if err != nil {
-		log.Fatalf("Error connecting to db %v", err)
+		slog.Error("failed to connect to db", "error", err)
+		os.Exit(1)
 	}
 	defer connPool.Close()
 
@@ -61,7 +65,27 @@ func main() {
 	e := echo.New()
 	e.Renderer = admin.NewRenderer()
 
-	e.Use(middleware.RequestLogger())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus:   true,
+		LogURI:      true,
+		LogMethod:   true,
+		LogLatency:  true,
+		LogError:    true,
+		HandleError: true,
+		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+			attrs := []slog.Attr{
+				slog.String("method", v.Method),
+				slog.String("uri", v.URI),
+				slog.Int("status", v.Status),
+				slog.Duration("latency", v.Latency),
+			}
+			if v.Error != nil {
+				attrs = append(attrs, slog.String("error", v.Error.Error()))
+			}
+			slog.LogAttrs(context.Background(), slog.LevelInfo, "request", attrs...)
+			return nil
+		},
+	}))
 	e.Use(middleware.Recover())
 
 	taskQueue := taskqueue.NewQueue("task-db:6379")
@@ -116,7 +140,7 @@ func main() {
 				return
 			case <-ticker.C:
 				if err := queries.DeleteExpiredSessions(sessionCleanupCtx); err != nil {
-					log.Printf("failed to delete expired sessions: %v", err)
+					slog.Error("failed to delete expired sessions", "error", err)
 				}
 			}
 		}
@@ -125,6 +149,7 @@ func main() {
 	go gameHub.Run()
 
 	if err := e.Start(":80"); err != http.ErrServerClosed {
-		log.Fatal(err)
+		slog.Error("failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -47,7 +47,7 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 	password := request.Body.Password
 	userID, err := auth.Login(ctx, h.q, username, password)
 	if err != nil {
-		log.Printf("login failed: %v", err)
+		slog.Error("login failed", "error", err)
 		var msg string
 		if errors.Is(err, auth.ErrForteeLoginTimeout) {
 			msg = "ログインに失敗しました"
