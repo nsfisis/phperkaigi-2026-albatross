@@ -2,7 +2,8 @@ check:
     go build -o /dev/null ./...
     go tool golangci-lint run
 
-ci: check
+test:
+    go test ./...
 
 gen:
     go generate ./...

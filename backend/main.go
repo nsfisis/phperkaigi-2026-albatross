@@ -16,6 +16,7 @@ import (
 
 	"albatross-2026-backend/admin"
 	"albatross-2026-backend/api"
+	"albatross-2026-backend/auth"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 	"albatross-2026-backend/game"
@@ -61,6 +62,8 @@ func main() {
 	defer connPool.Close()
 
 	queries := db.New(connPool)
+	txm := db.NewTxManager(connPool, queries)
+	authenticator := auth.NewAuthenticator(queries, txm)
 
 	e := echo.New()
 	e.Renderer = admin.NewRenderer()
@@ -91,7 +94,7 @@ func main() {
 	taskQueue := taskqueue.NewQueue("task-db:6379")
 	workerServer := taskqueue.NewWorkerServer("task-db:6379")
 
-	gameHub := game.NewGameHub(queries, connPool, taskQueue, workerServer)
+	gameHub := game.NewGameHub(queries, txm, taskQueue, workerServer)
 
 	loginRL := ratelimit.NewIPRateLimiter(rate.Every(time.Minute/5), 5)
 
@@ -99,10 +102,10 @@ func main() {
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
 	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
-	apiHandler := api.NewHandler(queries, connPool, gameHub, conf)
+	apiHandler := api.NewHandler(queries, txm, gameHub, authenticator, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
-	adminHandler := admin.NewHandler(queries, connPool, conf)
+	adminHandler := admin.NewHandler(queries, txm, conf)
 	adminGroup := e.Group(conf.BasePath + "admin")
 	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)

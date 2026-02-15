@@ -17,7 +17,7 @@ import (
 
 func FetchIcon(
 	ctx context.Context,
-	q *db.Queries,
+	q db.Querier,
 	userID int,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)

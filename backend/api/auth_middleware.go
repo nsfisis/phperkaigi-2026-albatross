@@ -12,7 +12,7 @@ import (
 type sessionIDContextKey struct{}
 type userContextKey struct{}
 
-func SessionCookieMiddleware(q *db.Queries) echo.MiddlewareFunc {
+func SessionCookieMiddleware(q db.Querier) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			cookie, err := c.Cookie("albatross_session")

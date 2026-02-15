@@ -56,3 +56,6 @@ check:
     cd backend; just check
     cd worker/swift; just check
     npm -w frontend run check
+
+test:
+    cd backend; just test

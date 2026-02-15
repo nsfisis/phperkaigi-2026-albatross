@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/nullable"
 
@@ -20,10 +19,15 @@ import (
 	"albatross-2026-backend/db"
 )
 
+type AuthenticatorInterface interface {
+	Login(ctx context.Context, username, password string) (int, error)
+}
+
 type Handler struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
+	q    db.Querier
+	txm  db.TxManager
 	hub  GameHubInterface
+	auth AuthenticatorInterface
 	conf *config.Config
 }
 
@@ -47,7 +51,7 @@ func (r postLoginCookieResponse) VisitPostLoginResponse(w http.ResponseWriter) e
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
 	username := request.Body.Username
 	password := request.Body.Password
-	userID, err := auth.Login(ctx, h.q, h.pool, username, password)
+	userID, err := h.auth.Login(ctx, username, password)
 	if err != nil {
 		slog.Error("login failed", "error", err)
 		var msg string
@@ -419,37 +423,26 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 		}, nil
 	}
 
-	tx, err := h.pool.Begin(ctx)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	defer func() {
-		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			slog.Error("failed to rollback transaction", "error", err)
+	var submissionID int32
+	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
+			GameID: int32(gameID),
+			UserID: user.UserID,
+			Code:   code,
+			Status: "running",
+		}); err != nil {
+			return err
 		}
-	}()
-
-	qtx := h.q.WithTx(tx)
-	err = qtx.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
-		GameID: int32(gameID),
-		UserID: user.UserID,
-		Code:   code,
-		Status: "running",
+		var err error
+		submissionID, err = qtx.CreateSubmission(ctx, db.CreateSubmissionParams{
+			GameID:   int32(gameID),
+			UserID:   user.UserID,
+			Code:     code,
+			CodeSize: int32(codeSize),
+		})
+		return err
 	})
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	submissionID, err := qtx.CreateSubmission(ctx, db.CreateSubmissionParams{
-		GameID:   int32(gameID),
-		UserID:   user.UserID,
-		Code:     code,
-		CodeSize: int32(codeSize),
-	})
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
