@@ -91,7 +91,7 @@ func main() {
 	taskQueue := taskqueue.NewQueue("task-db:6379")
 	workerServer := taskqueue.NewWorkerServer("task-db:6379")
 
-	gameHub := game.NewGameHub(queries, taskQueue, workerServer)
+	gameHub := game.NewGameHub(queries, connPool, taskQueue, workerServer)
 
 	loginRL := ratelimit.NewIPRateLimiter(rate.Every(time.Minute/5), 5)
 
@@ -99,10 +99,10 @@ func main() {
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
 	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
-	apiHandler := api.NewHandler(queries, gameHub, conf)
+	apiHandler := api.NewHandler(queries, connPool, gameHub, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
-	adminHandler := admin.NewHandler(queries, conf)
+	adminHandler := admin.NewHandler(queries, connPool, conf)
 	adminGroup := e.Group(conf.BasePath + "admin")
 	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
 	"albatross-2026-backend/account"
@@ -25,6 +26,7 @@ const (
 func Login(
 	ctx context.Context,
 	queries *db.Queries,
+	pool *pgxpool.Pool,
 	username string,
 	password string,
 ) (int, error) {
@@ -47,12 +49,13 @@ func Login(
 	}
 
 	// Authenticate with fortee.
-	return verifyForteeAccountOrSignup(ctx, queries, username, password)
+	return verifyForteeAccountOrSignup(ctx, queries, pool, username, password)
 }
 
 func verifyForteeAccountOrSignup(
 	ctx context.Context,
 	queries *db.Queries,
+	pool *pgxpool.Pool,
 	username string,
 	password string,
 ) (int, error) {
@@ -66,6 +69,7 @@ func verifyForteeAccountOrSignup(
 			return signup(
 				ctx,
 				queries,
+				pool,
 				canonicalizedUsername,
 			)
 		}
@@ -77,19 +81,35 @@ func verifyForteeAccountOrSignup(
 func signup(
 	ctx context.Context,
 	queries *db.Queries,
+	pool *pgxpool.Pool,
 	username string,
 ) (int, error) {
-	// TODO: transaction
-	userID, err := queries.CreateUser(ctx, username)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	if err := queries.CreateUserAuth(ctx, db.CreateUserAuthParams{
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("failed to rollback transaction", "error", err)
+		}
+	}()
+
+	qtx := queries.WithTx(tx)
+	userID, err := qtx.CreateUser(ctx, username)
+	if err != nil {
+		return 0, err
+	}
+	if err := qtx.CreateUserAuth(ctx, db.CreateUserAuthParams{
 		UserID:   userID,
 		AuthType: "fortee",
 	}); err != nil {
 		return 0, err
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
 	go func() {
 		err := account.FetchIcon(context.Background(), queries, int(userID))
 		if err != nil {

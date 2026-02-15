@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 
 	"albatross-2026-backend/account"
@@ -22,11 +23,12 @@ var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
 type Handler struct {
 	q    *db.Queries
+	pool *pgxpool.Pool
 	conf *config.Config
 }
 
-func NewHandler(q *db.Queries, conf *config.Config) *Handler {
-	return &Handler{q: q, conf: conf}
+func NewHandler(q *db.Queries, pool *pgxpool.Pool, conf *config.Config) *Handler {
+	return &Handler{q: q, pool: pool, conf: conf}
 }
 
 func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
@@ -485,20 +487,6 @@ func (h *Handler) postGameEdit(c echo.Context) error {
 		}
 	}
 
-	// TODO: transaction
-	err = h.q.UpdateGame(c.Request().Context(), db.UpdateGameParams{
-		GameID:          int32(gameID),
-		GameType:        gameType,
-		IsPublic:        isPublic,
-		DisplayName:     displayName,
-		DurationSeconds: int32(durationSeconds),
-		StartedAt:       changedStartedAt,
-		ProblemID:       int32(problemID),
-	})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
 	mainPlayers := []int{}
 	mainPlayer1Raw := c.FormValue("main_player_1")
 	if mainPlayer1Raw != "" && mainPlayer1Raw != "0" {
@@ -517,18 +505,47 @@ func (h *Handler) postGameEdit(c echo.Context) error {
 		mainPlayers = append(mainPlayers, mainPlayer2)
 	}
 
-	err = h.q.RemoveAllMainPlayers(c.Request().Context(), int32(gameID))
+	ctx := c.Request().Context()
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("failed to rollback transaction", "error", err)
+		}
+	}()
+
+	qtx := h.q.WithTx(tx)
+	err = qtx.UpdateGame(ctx, db.UpdateGameParams{
+		GameID:          int32(gameID),
+		GameType:        gameType,
+		IsPublic:        isPublic,
+		DisplayName:     displayName,
+		DurationSeconds: int32(durationSeconds),
+		StartedAt:       changedStartedAt,
+		ProblemID:       int32(problemID),
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	err = qtx.RemoveAllMainPlayers(ctx, int32(gameID))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	for _, userID := range mainPlayers {
-		err = h.q.AddMainPlayer(c.Request().Context(), db.AddMainPlayerParams{
+		err = qtx.AddMainPlayer(ctx, db.AddMainPlayerParams{
 			GameID: int32(gameID),
 			UserID: int32(userID),
 		})
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")

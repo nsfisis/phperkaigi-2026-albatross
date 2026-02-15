@@ -5,6 +5,8 @@ package api
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 )
@@ -15,10 +17,11 @@ type HandlerWrapper struct {
 	impl Handler
 }
 
-func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) *HandlerWrapper {
+func NewHandler(queries *db.Queries, pool *pgxpool.Pool, hub GameHubInterface, conf *config.Config) *HandlerWrapper {
 	return &HandlerWrapper{
 		impl: Handler{
 			q:    queries,
+			pool: pool,
 			hub:  hub,
 			conf: conf,
 		},

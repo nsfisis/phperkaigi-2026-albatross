@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/nullable"
 
@@ -21,6 +22,7 @@ import (
 
 type Handler struct {
 	q    *db.Queries
+	pool *pgxpool.Pool
 	hub  GameHubInterface
 	conf *config.Config
 }
@@ -45,7 +47,7 @@ func (r postLoginCookieResponse) VisitPostLoginResponse(w http.ResponseWriter) e
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
 	username := request.Body.Username
 	password := request.Body.Password
-	userID, err := auth.Login(ctx, h.q, username, password)
+	userID, err := auth.Login(ctx, h.q, h.pool, username, password)
 	if err != nil {
 		slog.Error("login failed", "error", err)
 		var msg string
@@ -321,6 +323,18 @@ func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameW
 
 func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject, _ *db.User) (GetGameWatchRankingResponseObject, error) {
 	gameID := request.GameID
+
+	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return GetGameWatchRanking404JSONResponse{
+				Message: "Game not found",
+			}, nil
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	gameFinished := isGameFinished(gameRow)
+
 	rows, err := h.q.GetRanking(ctx, int32(gameID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -329,8 +343,12 @@ func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchR
 	}
 	ranking := make([]RankingEntry, len(rows))
 	for i, row := range rows {
-		// TODO: check if game is finished.
-		code := &row.Submission.Code
+		var code nullable.Nullable[string]
+		if gameFinished {
+			code = nullable.NewNullableWithValue(row.Submission.Code)
+		} else {
+			code = nullable.NewNullNullable[string]()
+		}
 		ranking[i] = RankingEntry{
 			Player: User{
 				UserID:      int(row.User.UserID),
@@ -342,7 +360,7 @@ func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchR
 			},
 			Score:       int(row.Submission.CodeSize),
 			SubmittedAt: row.Submission.CreatedAt.Time.Unix(),
-			Code:        toNullable(code),
+			Code:        code,
 		}
 	}
 	return GetGameWatchRanking200JSONResponse{
@@ -352,8 +370,23 @@ func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchR
 
 func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *db.User) (PostGamePlayCodeResponseObject, error) {
 	gameID := request.GameID
-	// TODO: check if the game is running
-	err := h.q.UpdateCode(ctx, db.UpdateCodeParams{
+
+	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PostGamePlayCode404JSONResponse{
+				Message: "Game not found",
+			}, nil
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if !isGameRunning(gameRow) {
+		return PostGamePlayCode403JSONResponse{
+			Message: "Game is not running",
+		}, nil
+	}
+
+	err = h.q.UpdateCode(ctx, db.UpdateCodeParams{
 		GameID: int32(gameID),
 		UserID: user.UserID,
 		Code:   request.Body.Code,
@@ -379,9 +412,25 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 
 	language := gameRow.Language
 	codeSize := h.hub.CalcCodeSize(code, language)
-	// TODO: check if the game is running
-	// TODO: transaction
-	err = h.q.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
+
+	if !isGameRunning(gameRow) {
+		return PostGamePlaySubmit403JSONResponse{
+			Message: "Game is not running",
+		}, nil
+	}
+
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("failed to rollback transaction", "error", err)
+		}
+	}()
+
+	qtx := h.q.WithTx(tx)
+	err = qtx.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
 		GameID: int32(gameID),
 		UserID: user.UserID,
 		Code:   code,
@@ -390,7 +439,7 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	submissionID, err := h.q.CreateSubmission(ctx, db.CreateSubmissionParams{
+	submissionID, err := qtx.CreateSubmission(ctx, db.CreateSubmissionParams{
 		GameID:   int32(gameID),
 		UserID:   user.UserID,
 		Code:     code,
@@ -399,6 +448,11 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
 	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, int(user.UserID), language, code)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -498,6 +552,22 @@ func (h *Handler) GetTournament(ctx context.Context, request GetTournamentReques
 			Matches: matches,
 		},
 	}, nil
+}
+
+func isGameRunning(game db.GetGameByIDRow) bool {
+	if !game.StartedAt.Valid {
+		return false
+	}
+	endTime := game.StartedAt.Time.Add(time.Duration(game.DurationSeconds) * time.Second)
+	return time.Now().Before(endTime)
+}
+
+func isGameFinished(game db.GetGameByIDRow) bool {
+	if !game.StartedAt.Valid {
+		return false
+	}
+	endTime := game.StartedAt.Time.Add(time.Duration(game.DurationSeconds) * time.Second)
+	return !time.Now().Before(endTime)
 }
 
 func toNullable[T any](p *T) nullable.Nullable[T] {
