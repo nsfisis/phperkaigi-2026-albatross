@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"albatross-2026-backend/account"
-	"albatross-2026-backend/auth"
+	"albatross-2026-backend/api"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
 )
@@ -32,15 +32,11 @@ func NewHandler(q *db.Queries, conf *config.Config) *Handler {
 func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			jwt, err := c.Cookie("albatross_token")
-			if err != nil {
+			user, ok := api.GetUserFromContext(c.Request().Context())
+			if !ok {
 				return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"login")
 			}
-			claims, err := auth.ParseJWT(jwt.Value)
-			if err != nil {
-				return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"login")
-			}
-			if !claims.IsAdmin {
+			if !user.IsAdmin {
 				return echo.NewHTTPError(http.StatusForbidden)
 			}
 			return next(c)

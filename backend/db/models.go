@@ -40,6 +40,13 @@ type Problem struct {
 	SampleCode  string
 }
 
+type Session struct {
+	SessionID string
+	UserID    int32
+	ExpiresAt pgtype.Timestamp
+	CreatedAt pgtype.Timestamp
+}
+
 type Submission struct {
 	SubmissionID int32
 	GameID       int32

@@ -73,13 +73,14 @@ func main() {
 
 	apiGroup := e.Group(conf.BasePath + "api")
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
-	apiGroup.Use(api.JWTCookieMiddleware)
+	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
 	apiHandler := api.NewHandler(queries, gameHub, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
 	adminHandler := admin.NewHandler(queries, conf)
 	adminGroup := e.Group(conf.BasePath + "admin")
+	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)
 
 	if conf.IsLocal {
@@ -103,6 +104,23 @@ func main() {
 			AllowCredentials: true,
 		}))
 	}
+
+	sessionCleanupCtx, cancelSessionCleanup := context.WithCancel(context.Background())
+	defer cancelSessionCleanup()
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-sessionCleanupCtx.Done():
+				return
+			case <-ticker.C:
+				if err := queries.DeleteExpiredSessions(sessionCleanupCtx); err != nil {
+					log.Printf("failed to delete expired sessions: %v", err)
+				}
+			}
+		}
+	}()
 
 	go gameHub.Run()
 

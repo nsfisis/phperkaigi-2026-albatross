@@ -276,3 +276,17 @@ SELECT *
 FROM testcase_results
 WHERE submission_id = $1
 ORDER BY created_at;
+
+-- name: CreateSession :exec
+INSERT INTO sessions (session_id, user_id, expires_at) VALUES ($1, $2, $3);
+
+-- name: GetUserBySession :one
+SELECT users.* FROM sessions
+JOIN users ON sessions.user_id = users.user_id
+WHERE sessions.session_id = $1 AND sessions.expires_at > NOW();
+
+-- name: DeleteSession :exec
+DELETE FROM sessions WHERE session_id = $1;
+
+-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions WHERE expires_at < NOW();

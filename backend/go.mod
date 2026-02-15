@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/getkin/kin-openapi v0.133.0
-	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hibiken/asynq v0.26.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/labstack/echo/v4 v4.15.0

@@ -26,7 +26,7 @@ func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) 
 }
 
 func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObject) (GetGameResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetGame401JSONResponse{
 			Message: "Unauthorized",
@@ -36,7 +36,7 @@ func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObje
 }
 
 func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject) (GetGamePlayLatestStateResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetGamePlayLatestState401JSONResponse{
 			Message: "Unauthorized",
@@ -46,7 +46,7 @@ func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request Get
 }
 
 func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetGameWatchLatestStates401JSONResponse{
 			Message: "Unauthorized",
@@ -56,7 +56,7 @@ func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request G
 }
 
 func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject) (GetGameWatchRankingResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetGameWatchRanking401JSONResponse{
 			Message: "Unauthorized",
@@ -66,7 +66,7 @@ func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGam
 }
 
 func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetGames401JSONResponse{
 			Message: "Unauthorized",
@@ -76,7 +76,7 @@ func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestOb
 }
 
 func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetMe401JSONResponse{
 			Message: "Unauthorized",
@@ -86,7 +86,7 @@ func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) 
 }
 
 func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return GetTournament401JSONResponse{
 			Message: "Unauthorized",
@@ -96,7 +96,7 @@ func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamen
 }
 
 func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject) (PostGamePlayCodeResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return PostGamePlayCode401JSONResponse{
 			Message: "Unauthorized",
@@ -106,7 +106,7 @@ func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGameP
 }
 
 func (h *HandlerWrapper) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject) (PostGamePlaySubmitResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return PostGamePlaySubmit401JSONResponse{
 			Message: "Unauthorized",
@@ -120,7 +120,7 @@ func (h *HandlerWrapper) PostLogin(ctx context.Context, request PostLoginRequest
 }
 
 func (h *HandlerWrapper) PostLogout(ctx context.Context, request PostLogoutRequestObject) (PostLogoutResponseObject, error) {
-	user, ok := GetJWTClaimsFromContext(ctx)
+	user, ok := GetUserFromContext(ctx)
 	if !ok {
 		return PostLogout401JSONResponse{
 			Message: "Unauthorized",

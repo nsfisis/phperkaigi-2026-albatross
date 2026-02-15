@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/nullable"
 
@@ -64,15 +66,25 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 		}, nil
 	}
 
-	jwt, err := auth.NewJWT(&dbUser)
+	sessionID, err := auth.GenerateSessionID()
 	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	hashedID := auth.HashSessionID(sessionID)
+	expiresAt := pgtype.Timestamp{Time: time.Now().Add(24 * time.Hour), Valid: true}
+	if err := h.q.CreateSession(ctx, db.CreateSessionParams{
+		SessionID: hashedID,
+		UserID:    dbUser.UserID,
+		ExpiresAt: expiresAt,
+	}); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return postLoginCookieResponse{
 		cookie: http.Cookie{
-			Name:     "albatross_token",
-			Value:    jwt,
+			Name:     "albatross_session",
+			Value:    sessionID,
 			Path:     h.conf.BasePath,
 			MaxAge:   86400,
 			HttpOnly: true,
@@ -92,21 +104,15 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 	}, nil
 }
 
-func (h *Handler) GetMe(ctx context.Context, _ GetMeRequestObject, claims *auth.JWTClaims) (GetMeResponseObject, error) {
-	dbUser, err := h.q.GetUserByID(ctx, int32(claims.UserID))
-	if err != nil {
-		return GetMe401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+func (h *Handler) GetMe(_ context.Context, _ GetMeRequestObject, user *db.User) (GetMeResponseObject, error) {
 	return GetMe200JSONResponse{
 		User: User{
-			UserID:      int(dbUser.UserID),
-			Username:    dbUser.Username,
-			DisplayName: dbUser.DisplayName,
-			IconPath:    dbUser.IconPath,
-			IsAdmin:     dbUser.IsAdmin,
-			Label:       toNullable(dbUser.Label),
+			UserID:      int(user.UserID),
+			Username:    user.Username,
+			DisplayName: user.DisplayName,
+			IconPath:    user.IconPath,
+			IsAdmin:     user.IsAdmin,
+			Label:       toNullable(user.Label),
 		},
 	}, nil
 }
@@ -121,10 +127,13 @@ func (r postLogoutCookieResponse) VisitPostLogoutResponse(w http.ResponseWriter)
 	return nil
 }
 
-func (h *Handler) PostLogout(_ context.Context, _ PostLogoutRequestObject, _ *auth.JWTClaims) (PostLogoutResponseObject, error) {
+func (h *Handler) PostLogout(ctx context.Context, _ PostLogoutRequestObject, _ *db.User) (PostLogoutResponseObject, error) {
+	if sessionID, ok := GetSessionIDFromContext(ctx); ok {
+		_ = h.q.DeleteSession(ctx, sessionID)
+	}
 	return postLogoutCookieResponse{
 		cookie: http.Cookie{
-			Name:     "albatross_token",
+			Name:     "albatross_session",
 			Value:    "",
 			Path:     h.conf.BasePath,
 			MaxAge:   -1,
@@ -135,7 +144,7 @@ func (h *Handler) PostLogout(_ context.Context, _ PostLogoutRequestObject, _ *au
 	}, nil
 }
 
-func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth.JWTClaims) (GetGamesResponseObject, error) {
+func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *db.User) (GetGamesResponseObject, error) {
 	gameRows, err := h.q.ListPublicGames(ctx)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -188,7 +197,7 @@ func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *auth
 	}, nil
 }
 
-func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, user *auth.JWTClaims) (GetGameResponseObject, error) {
+func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, user *db.User) (GetGameResponseObject, error) {
 	gameID := request.GameID
 	row, err := h.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
@@ -245,12 +254,11 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, use
 	}, nil
 }
 
-func (h *Handler) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject, user *auth.JWTClaims) (GetGamePlayLatestStateResponseObject, error) {
+func (h *Handler) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject, user *db.User) (GetGamePlayLatestStateResponseObject, error) {
 	gameID := request.GameID
-	userID := user.UserID
 	row, err := h.q.GetLatestState(ctx, db.GetLatestStateParams{
 		GameID: int32(gameID),
-		UserID: int32(userID),
+		UserID: user.UserID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -275,7 +283,7 @@ func (h *Handler) GetGamePlayLatestState(ctx context.Context, request GetGamePla
 	}, nil
 }
 
-func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject, user *auth.JWTClaims) (GetGameWatchLatestStatesResponseObject, error) {
+func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject, user *db.User) (GetGameWatchLatestStatesResponseObject, error) {
 	gameID := request.GameID
 	rows, err := h.q.GetLatestStatesOfMainPlayers(ctx, int32(gameID))
 	if err != nil {
@@ -300,7 +308,7 @@ func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameW
 			Status:               status,
 		}
 
-		if int(row.UserID) == user.UserID && !user.IsAdmin {
+		if row.UserID == user.UserID && !user.IsAdmin {
 			return GetGameWatchLatestStates403JSONResponse{
 				Message: "You are one of the main players of this game",
 			}, nil
@@ -311,7 +319,7 @@ func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameW
 	}, nil
 }
 
-func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject, _ *auth.JWTClaims) (GetGameWatchRankingResponseObject, error) {
+func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject, _ *db.User) (GetGameWatchRankingResponseObject, error) {
 	gameID := request.GameID
 	rows, err := h.q.GetRanking(ctx, int32(gameID))
 	if err != nil {
@@ -342,13 +350,12 @@ func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchR
 	}, nil
 }
 
-func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *auth.JWTClaims) (PostGamePlayCodeResponseObject, error) {
+func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *db.User) (PostGamePlayCodeResponseObject, error) {
 	gameID := request.GameID
-	userID := user.UserID
 	// TODO: check if the game is running
 	err := h.q.UpdateCode(ctx, db.UpdateCodeParams{
 		GameID: int32(gameID),
-		UserID: int32(userID),
+		UserID: user.UserID,
 		Code:   request.Body.Code,
 		Status: "none",
 	})
@@ -358,9 +365,8 @@ func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCode
 	return PostGamePlayCode200Response{}, nil
 }
 
-func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject, user *auth.JWTClaims) (PostGamePlaySubmitResponseObject, error) {
+func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject, user *db.User) (PostGamePlaySubmitResponseObject, error) {
 	gameID := request.GameID
-	userID := user.UserID
 	code := request.Body.Code
 
 	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
@@ -377,7 +383,7 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	// TODO: transaction
 	err = h.q.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
 		GameID: int32(gameID),
-		UserID: int32(userID),
+		UserID: user.UserID,
 		Code:   code,
 		Status: "running",
 	})
@@ -386,21 +392,21 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 	}
 	submissionID, err := h.q.CreateSubmission(ctx, db.CreateSubmissionParams{
 		GameID:   int32(gameID),
-		UserID:   int32(userID),
+		UserID:   user.UserID,
 		Code:     code,
 		CodeSize: int32(codeSize),
 	})
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, userID, language, code)
+	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, int(user.UserID), language, code)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return PostGamePlaySubmit200Response{}, nil
 }
 
-func (h *Handler) GetTournament(ctx context.Context, request GetTournamentRequestObject, _ *auth.JWTClaims) (GetTournamentResponseObject, error) {
+func (h *Handler) GetTournament(ctx context.Context, request GetTournamentRequestObject, _ *db.User) (GetTournamentResponseObject, error) {
 	gameIDs := []int32{
 		int32(request.Params.Game1),
 		int32(request.Params.Game2),

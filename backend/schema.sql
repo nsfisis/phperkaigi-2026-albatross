@@ -94,3 +94,13 @@ CREATE TABLE testcase_results (
     CONSTRAINT uq_submission_id_testcase_id UNIQUE(submission_id, testcase_id)
 );
 CREATE INDEX idx_testcase_results_submission_id ON testcase_results(submission_id);
+
+CREATE TABLE sessions (
+    session_id  VARCHAR(64) PRIMARY KEY,
+    user_id     INT         NOT NULL,
+    expires_at  TIMESTAMP   NOT NULL,
+    created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_sessions_user_id FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);

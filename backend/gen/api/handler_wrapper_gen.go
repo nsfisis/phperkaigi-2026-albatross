@@ -128,7 +128,7 @@ func NewHandler(queries *db.Queries, hub GameHubInterface, conf *config.Config) 
 {{ range . }}
 	func (h *HandlerWrapper) {{ .Name }}(ctx context.Context, request {{ .Name }}RequestObject) ({{ .Name }}ResponseObject, error) {
 		{{ if .RequiresLogin -}}
-			user, ok := GetJWTClaimsFromContext(ctx)
+			user, ok := GetUserFromContext(ctx)
 			if !ok {
 				return {{ .Name }}401JSONResponse{
 					Message: "Unauthorized",

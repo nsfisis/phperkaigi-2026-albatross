@@ -10,17 +10,15 @@
 
 * Docker
 * Docker Compose
-* Node.js 20.0.0 or later
+* Node.js 22 or later
 * Npm
-* Go 1.22.3 or later
+* Go 1.25 or later
 
 # Run
 
 1. Clone the repository.
 1. `cd path/to/the/repo`
-1. Copy `.env.example` to `.env` and configure:
-    * `ALBATROSS_JWT_SECRET`: Secret key for JWT tokens
-    * `ALBATROSS_COOKIE_SECRET`: Secret key for cookies
+1. Copy `.env.example` to `.env`.
 1. `direnv allow .` (optional)
 1. `just init`
 1. `just up`

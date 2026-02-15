@@ -103,6 +103,21 @@ func (q *Queries) CreateProblem(ctx context.Context, arg CreateProblemParams) (i
 	return problem_id, err
 }
 
+const createSession = `-- name: CreateSession :exec
+INSERT INTO sessions (session_id, user_id, expires_at) VALUES ($1, $2, $3)
+`
+
+type CreateSessionParams struct {
+	SessionID string
+	UserID    int32
+	ExpiresAt pgtype.Timestamp
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.Exec(ctx, createSession, arg.SessionID, arg.UserID, arg.ExpiresAt)
+	return err
+}
+
 const createSubmission = `-- name: CreateSubmission :one
 INSERT INTO submissions (game_id, user_id, code, code_size, status)
 VALUES ($1, $2, $3, $4, 'running')
@@ -196,6 +211,24 @@ type CreateUserAuthParams struct {
 
 func (q *Queries) CreateUserAuth(ctx context.Context, arg CreateUserAuthParams) error {
 	_, err := q.db.Exec(ctx, createUserAuth, arg.UserID, arg.AuthType)
+	return err
+}
+
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions)
+	return err
+}
+
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions WHERE session_id = $1
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, sessionID string) error {
+	_, err := q.db.Exec(ctx, deleteSession, sessionID)
 	return err
 }
 
@@ -658,6 +691,27 @@ LIMIT 1
 
 func (q *Queries) GetUserByID(ctx context.Context, userID int32) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, userID)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.IconPath,
+		&i.IsAdmin,
+		&i.Label,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserBySession = `-- name: GetUserBySession :one
+SELECT users.user_id, users.username, users.display_name, users.icon_path, users.is_admin, users.label, users.created_at FROM sessions
+JOIN users ON sessions.user_id = users.user_id
+WHERE sessions.session_id = $1 AND sessions.expires_at > NOW()
+`
+
+func (q *Queries) GetUserBySession(ctx context.Context, sessionID string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserBySession, sessionID)
 	var i User
 	err := row.Scan(
 		&i.UserID,
