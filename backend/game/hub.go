@@ -97,7 +97,8 @@ func (hub *Hub) processTaskResults() {
 				continue
 			}
 		default:
-			panic("unexpected task result type")
+			slog.Error("unexpected task result type", "type", taskResult.Type())
+			continue
 		}
 	}
 }

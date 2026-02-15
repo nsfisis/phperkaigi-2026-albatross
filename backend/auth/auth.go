@@ -39,7 +39,7 @@ func Login(
 		// Authenticate with password.
 		passwordHash := userAuth.PasswordHash
 		if passwordHash == nil {
-			panic("inconsistant data")
+			return 0, errors.New("inconsistent data: password auth type but no password hash")
 		}
 		err := bcrypt.CompareHashAndPassword([]byte(*passwordHash), []byte(password))
 		if err != nil {
