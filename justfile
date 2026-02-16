@@ -59,5 +59,6 @@ check:
 
 test:
     cd backend; just test
+    cd frontend; just test
+    cd worker/php; just test
     cd worker/swift; just test
-    npm -w worker/php run test
