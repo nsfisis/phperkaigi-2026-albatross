@@ -42,3 +42,8 @@ func GetUserFromContext(ctx context.Context) (*db.User, bool) {
 	user, ok := ctx.Value(userContextKey{}).(*db.User)
 	return user, ok
 }
+
+// SetUserInContext sets a user in the context. Intended for testing.
+func SetUserInContext(ctx context.Context, user *db.User) context.Context {
+	return context.WithValue(ctx, userContextKey{}, user)
+}

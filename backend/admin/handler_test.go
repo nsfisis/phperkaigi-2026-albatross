@@ -1,0 +1,1064 @@
+package admin
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/labstack/echo/v4"
+
+	"albatross-2026-backend/api"
+	"albatross-2026-backend/config"
+	"albatross-2026-backend/db"
+)
+
+// mockQuerier implements db.Querier for admin handler testing.
+type mockQuerier struct {
+	db.Querier
+	getUserByIDFunc                func(ctx context.Context, userID int32) (db.User, error)
+	listUsersFunc                  func(ctx context.Context) ([]db.User, error)
+	updateUserFunc                 func(ctx context.Context, arg db.UpdateUserParams) error
+	listAllGamesFunc               func(ctx context.Context) ([]db.Game, error)
+	getGameByIDFunc                func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
+	listProblemsFunc               func(ctx context.Context) ([]db.Problem, error)
+	getProblemByIDFunc             func(ctx context.Context, problemID int32) (db.Problem, error)
+	createGameFunc                 func(ctx context.Context, arg db.CreateGameParams) (int32, error)
+	createProblemFunc              func(ctx context.Context, arg db.CreateProblemParams) (int32, error)
+	updateProblemFunc              func(ctx context.Context, arg db.UpdateProblemParams) error
+	listTestcasesByProblemIDFunc   func(ctx context.Context, problemID int32) ([]db.Testcase, error)
+	getTestcaseByIDFunc            func(ctx context.Context, testcaseID int32) (db.Testcase, error)
+	createTestcaseFunc             func(ctx context.Context, arg db.CreateTestcaseParams) (int32, error)
+	updateTestcaseFunc             func(ctx context.Context, arg db.UpdateTestcaseParams) error
+	deleteTestcaseFunc             func(ctx context.Context, testcaseID int32) error
+	listMainPlayersFunc            func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
+	listSubmissionIDsFunc          func(ctx context.Context) ([]int32, error)
+	getSubmissionsByGameIDFunc     func(ctx context.Context, gameID int32) ([]db.Submission, error)
+	getSubmissionByIDFunc          func(ctx context.Context, submissionID int32) (db.Submission, error)
+	getTestcaseResultsBySubmIDFunc func(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error)
+	listTestcasesByGameIDFunc      func(ctx context.Context, gameID int32) ([]db.Testcase, error)
+	updateGameStartedAtFunc        func(ctx context.Context, arg db.UpdateGameStartedAtParams) error
+}
+
+func (m *mockQuerier) GetUserByID(ctx context.Context, userID int32) (db.User, error) {
+	if m.getUserByIDFunc != nil {
+		return m.getUserByIDFunc(ctx, userID)
+	}
+	return db.User{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) ListUsers(ctx context.Context) ([]db.User, error) {
+	if m.listUsersFunc != nil {
+		return m.listUsersFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) UpdateUser(ctx context.Context, arg db.UpdateUserParams) error {
+	if m.updateUserFunc != nil {
+		return m.updateUserFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListAllGames(ctx context.Context) ([]db.Game, error) {
+	if m.listAllGamesFunc != nil {
+		return m.listAllGamesFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetGameByID(ctx context.Context, gameID int32) (db.GetGameByIDRow, error) {
+	if m.getGameByIDFunc != nil {
+		return m.getGameByIDFunc(ctx, gameID)
+	}
+	return db.GetGameByIDRow{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) ListProblems(ctx context.Context) ([]db.Problem, error) {
+	if m.listProblemsFunc != nil {
+		return m.listProblemsFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetProblemByID(ctx context.Context, problemID int32) (db.Problem, error) {
+	if m.getProblemByIDFunc != nil {
+		return m.getProblemByIDFunc(ctx, problemID)
+	}
+	return db.Problem{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) CreateGame(ctx context.Context, arg db.CreateGameParams) (int32, error) {
+	if m.createGameFunc != nil {
+		return m.createGameFunc(ctx, arg)
+	}
+	return 1, nil
+}
+
+func (m *mockQuerier) CreateProblem(ctx context.Context, arg db.CreateProblemParams) (int32, error) {
+	if m.createProblemFunc != nil {
+		return m.createProblemFunc(ctx, arg)
+	}
+	return 1, nil
+}
+
+func (m *mockQuerier) UpdateProblem(ctx context.Context, arg db.UpdateProblemParams) error {
+	if m.updateProblemFunc != nil {
+		return m.updateProblemFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListTestcasesByProblemID(ctx context.Context, problemID int32) ([]db.Testcase, error) {
+	if m.listTestcasesByProblemIDFunc != nil {
+		return m.listTestcasesByProblemIDFunc(ctx, problemID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetTestcaseByID(ctx context.Context, testcaseID int32) (db.Testcase, error) {
+	if m.getTestcaseByIDFunc != nil {
+		return m.getTestcaseByIDFunc(ctx, testcaseID)
+	}
+	return db.Testcase{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) CreateTestcase(ctx context.Context, arg db.CreateTestcaseParams) (int32, error) {
+	if m.createTestcaseFunc != nil {
+		return m.createTestcaseFunc(ctx, arg)
+	}
+	return 1, nil
+}
+
+func (m *mockQuerier) UpdateTestcase(ctx context.Context, arg db.UpdateTestcaseParams) error {
+	if m.updateTestcaseFunc != nil {
+		return m.updateTestcaseFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) DeleteTestcase(ctx context.Context, testcaseID int32) error {
+	if m.deleteTestcaseFunc != nil {
+		return m.deleteTestcaseFunc(ctx, testcaseID)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListMainPlayers(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error) {
+	if m.listMainPlayersFunc != nil {
+		return m.listMainPlayersFunc(ctx, gameIDs)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) ListSubmissionIDs(ctx context.Context) ([]int32, error) {
+	if m.listSubmissionIDsFunc != nil {
+		return m.listSubmissionIDsFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]db.Submission, error) {
+	if m.getSubmissionsByGameIDFunc != nil {
+		return m.getSubmissionsByGameIDFunc(ctx, gameID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetSubmissionByID(ctx context.Context, submissionID int32) (db.Submission, error) {
+	if m.getSubmissionByIDFunc != nil {
+		return m.getSubmissionByIDFunc(ctx, submissionID)
+	}
+	return db.Submission{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) GetTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error) {
+	if m.getTestcaseResultsBySubmIDFunc != nil {
+		return m.getTestcaseResultsBySubmIDFunc(ctx, submissionID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) ListTestcasesByGameID(ctx context.Context, gameID int32) ([]db.Testcase, error) {
+	if m.listTestcasesByGameIDFunc != nil {
+		return m.listTestcasesByGameIDFunc(ctx, gameID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) UpdateGameStartedAt(ctx context.Context, arg db.UpdateGameStartedAtParams) error {
+	if m.updateGameStartedAtFunc != nil {
+		return m.updateGameStartedAtFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListTestcasesByProblemIDForUpdate(ctx context.Context, problemID int32) ([]db.Testcase, error) {
+	return m.ListTestcasesByProblemID(ctx, problemID)
+}
+
+// mockTxManager implements db.TxManager for testing.
+type mockTxManager struct {
+	runInTxFunc func(ctx context.Context, fn func(q db.Querier) error) error
+}
+
+func (m *mockTxManager) RunInTx(ctx context.Context, fn func(q db.Querier) error) error {
+	if m.runInTxFunc != nil {
+		return m.runInTxFunc(ctx, fn)
+	}
+	return fn(&mockQuerier{})
+}
+
+// mockRenderer implements echo.Renderer for testing.
+type mockRenderer struct {
+	lastTemplateName string
+	lastData         any
+}
+
+func (r *mockRenderer) Render(_ io.Writer, name string, data interface{}, _ echo.Context) error {
+	r.lastTemplateName = name
+	r.lastData = data
+	return nil
+}
+
+func newTestHandler(q *mockQuerier) *Handler {
+	return &Handler{
+		q:    q,
+		txm:  &mockTxManager{},
+		conf: &config.Config{BasePath: "/test/"},
+	}
+}
+
+func newEchoContext(method, path string, params map[string]string) (echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	e.Renderer = &mockRenderer{}
+	req := httptest.NewRequest(method, path, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if params != nil {
+		names := make([]string, 0, len(params))
+		values := make([]string, 0, len(params))
+		for k, v := range params {
+			names = append(names, k)
+			values = append(values, v)
+		}
+		c.SetParamNames(names...)
+		c.SetParamValues(values...)
+	}
+	return c, rec
+}
+
+func newEchoContextWithForm(path string, params map[string]string, form url.Values) (echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	e.Renderer = &mockRenderer{}
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if params != nil {
+		names := make([]string, 0, len(params))
+		values := make([]string, 0, len(params))
+		for k, v := range params {
+			names = append(names, k)
+			values = append(values, v)
+		}
+		c.SetParamNames(names...)
+		c.SetParamValues(values...)
+	}
+	return c, rec
+}
+
+// --- Admin middleware tests ---
+
+func setUserInContext(c echo.Context, user *db.User) {
+	ctx := api.SetUserInContext(c.Request().Context(), user)
+	c.SetRequest(c.Request().WithContext(ctx))
+}
+
+func TestAdminMiddleware_NoUser(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	middleware := h.newAdminMiddleware()
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/dashboard", nil)
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
+	err := handler(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestAdminMiddleware_NonAdminUser(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	middleware := h.newAdminMiddleware()
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/dashboard", nil)
+	setUserInContext(c, &db.User{UserID: 1, IsAdmin: false})
+
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
+	err := handler(c)
+	if err == nil {
+		t.Fatal("expected error for non-admin user")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusForbidden)
+	}
+}
+
+func TestAdminMiddleware_AdminUser(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	middleware := h.newAdminMiddleware()
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/dashboard", nil)
+	setUserInContext(c, &db.User{UserID: 1, IsAdmin: true})
+
+	called := false
+	handler := middleware(func(c echo.Context) error {
+		called = true
+		return c.String(http.StatusOK, "ok")
+	})
+
+	err := handler(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("next handler was not called")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+// --- Handler tests ---
+
+func TestGetUsers_Success(t *testing.T) {
+	q := &mockQuerier{
+		listUsersFunc: func(_ context.Context) ([]db.User, error) {
+			return []db.User{
+				{UserID: 1, Username: "alice", DisplayName: "Alice", IsAdmin: false},
+				{UserID: 2, Username: "bob", DisplayName: "Bob", IsAdmin: true},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/users", nil)
+	err := h.getUsers(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetUsers_DBError(t *testing.T) {
+	q := &mockQuerier{
+		listUsersFunc: func(_ context.Context) ([]db.User, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	h := newTestHandler(q)
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/users", nil)
+	err := h.getUsers(c)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestGetUserEdit_Success(t *testing.T) {
+	q := &mockQuerier{
+		getUserByIDFunc: func(_ context.Context, userID int32) (db.User, error) {
+			return db.User{UserID: userID, Username: "alice", DisplayName: "Alice"}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/users/1", map[string]string{"userID": "1"})
+	err := h.getUserEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetUserEdit_InvalidID(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/users/abc", map[string]string{"userID": "abc"})
+	err := h.getUserEdit(c)
+	if err == nil {
+		t.Fatal("expected error for invalid userID")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGetUserEdit_NotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/users/999", map[string]string{"userID": "999"})
+	err := h.getUserEdit(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent user")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostUserEdit_Success(t *testing.T) {
+	var updatedParams db.UpdateUserParams
+	q := &mockQuerier{
+		updateUserFunc: func(_ context.Context, arg db.UpdateUserParams) error {
+			updatedParams = arg
+			return nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"display_name": {"Alice Updated"},
+		"icon_path":    {"files/img/alice/icon.png"},
+		"is_admin":     {"on"},
+		"label":        {"sponsor"},
+	}
+	c, rec := newEchoContextWithForm("/admin/users/1", map[string]string{"userID": "1"}, form)
+
+	err := h.postUserEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if updatedParams.UserID != 1 {
+		t.Errorf("UserID = %d, want 1", updatedParams.UserID)
+	}
+	if updatedParams.DisplayName != "Alice Updated" {
+		t.Errorf("DisplayName = %q, want %q", updatedParams.DisplayName, "Alice Updated")
+	}
+	if !updatedParams.IsAdmin {
+		t.Error("IsAdmin should be true")
+	}
+}
+
+func TestPostUserEdit_EmptyOptionalFields(t *testing.T) {
+	var updatedParams db.UpdateUserParams
+	q := &mockQuerier{
+		updateUserFunc: func(_ context.Context, arg db.UpdateUserParams) error {
+			updatedParams = arg
+			return nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"display_name": {"Bob"},
+	}
+	c, _ := newEchoContextWithForm("/admin/users/2", map[string]string{"userID": "2"}, form)
+
+	err := h.postUserEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updatedParams.IconPath != nil {
+		t.Errorf("IconPath should be nil for empty value, got %v", updatedParams.IconPath)
+	}
+	if updatedParams.IsAdmin {
+		t.Error("IsAdmin should be false when not in form")
+	}
+	if updatedParams.Label != nil {
+		t.Errorf("Label should be nil for empty value, got %v", updatedParams.Label)
+	}
+}
+
+func TestGetGames_Success(t *testing.T) {
+	q := &mockQuerier{
+		listAllGamesFunc: func(_ context.Context) ([]db.Game, error) {
+			return []db.Game{
+				{GameID: 1, GameType: "golf", DisplayName: "Game 1", DurationSeconds: 300, ProblemID: 1},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/games", nil)
+	err := h.getGames(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestPostGameNew_Success(t *testing.T) {
+	var createdParams db.CreateGameParams
+	q := &mockQuerier{
+		createGameFunc: func(_ context.Context, arg db.CreateGameParams) (int32, error) {
+			createdParams = arg
+			return 1, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"game_type":        {"golf"},
+		"is_public":        {"on"},
+		"display_name":     {"Test Game"},
+		"duration_seconds": {"300"},
+		"problem_id":       {"1"},
+	}
+	c, rec := newEchoContextWithForm("/admin/games/new", nil, form)
+
+	err := h.postGameNew(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if createdParams.GameType != "golf" {
+		t.Errorf("GameType = %q, want %q", createdParams.GameType, "golf")
+	}
+	if !createdParams.IsPublic {
+		t.Error("IsPublic should be true")
+	}
+	if createdParams.DurationSeconds != 300 {
+		t.Errorf("DurationSeconds = %d, want 300", createdParams.DurationSeconds)
+	}
+	if createdParams.ProblemID != 1 {
+		t.Errorf("ProblemID = %d, want 1", createdParams.ProblemID)
+	}
+}
+
+func TestPostGameNew_InvalidDuration(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	form := url.Values{
+		"game_type":        {"golf"},
+		"display_name":     {"Test Game"},
+		"duration_seconds": {"invalid"},
+		"problem_id":       {"1"},
+	}
+	c, _ := newEchoContextWithForm("/admin/games/new", nil, form)
+
+	err := h.postGameNew(c)
+	if err == nil {
+		t.Fatal("expected error for invalid duration")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestPostGameNew_InvalidProblemID(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	form := url.Values{
+		"game_type":        {"golf"},
+		"display_name":     {"Test Game"},
+		"duration_seconds": {"300"},
+		"problem_id":       {"invalid"},
+	}
+	c, _ := newEchoContextWithForm("/admin/games/new", nil, form)
+
+	err := h.postGameNew(c)
+	if err == nil {
+		t.Fatal("expected error for invalid problem_id")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGetProblems_Success(t *testing.T) {
+	q := &mockQuerier{
+		listProblemsFunc: func(_ context.Context) ([]db.Problem, error) {
+			return []db.Problem{
+				{ProblemID: 1, Title: "Hello World", Description: "Print hello", Language: "php"},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/problems", nil)
+	err := h.getProblems(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestPostProblemNew_Success(t *testing.T) {
+	var createdParams db.CreateProblemParams
+	q := &mockQuerier{
+		createProblemFunc: func(_ context.Context, arg db.CreateProblemParams) (int32, error) {
+			createdParams = arg
+			return 1, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"title":       {"FizzBuzz"},
+		"description": {"Write FizzBuzz"},
+		"language":    {"php"},
+		"sample_code": {"<?php echo 1;"},
+	}
+	c, rec := newEchoContextWithForm("/admin/problems/new", nil, form)
+
+	err := h.postProblemNew(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if createdParams.Title != "FizzBuzz" {
+		t.Errorf("Title = %q, want %q", createdParams.Title, "FizzBuzz")
+	}
+	if createdParams.Language != "php" {
+		t.Errorf("Language = %q, want %q", createdParams.Language, "php")
+	}
+}
+
+func TestGetProblemEdit_Success(t *testing.T) {
+	q := &mockQuerier{
+		getProblemByIDFunc: func(_ context.Context, problemID int32) (db.Problem, error) {
+			return db.Problem{ProblemID: problemID, Title: "Test", Language: "php"}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/problems/1", map[string]string{"problemID": "1"})
+	err := h.getProblemEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetProblemEdit_NotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/problems/999", map[string]string{"problemID": "999"})
+	err := h.getProblemEdit(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent problem")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostProblemEdit_Success(t *testing.T) {
+	var updatedParams db.UpdateProblemParams
+	q := &mockQuerier{
+		updateProblemFunc: func(_ context.Context, arg db.UpdateProblemParams) error {
+			updatedParams = arg
+			return nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"title":       {"Updated Title"},
+		"description": {"Updated Desc"},
+		"language":    {"php"},
+		"sample_code": {"<?php echo 2;"},
+	}
+	c, rec := newEchoContextWithForm("/admin/problems/1", map[string]string{"problemID": "1"}, form)
+
+	err := h.postProblemEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if updatedParams.ProblemID != 1 {
+		t.Errorf("ProblemID = %d, want 1", updatedParams.ProblemID)
+	}
+	if updatedParams.Title != "Updated Title" {
+		t.Errorf("Title = %q, want %q", updatedParams.Title, "Updated Title")
+	}
+}
+
+func TestGetTestcases_Success(t *testing.T) {
+	q := &mockQuerier{
+		getProblemByIDFunc: func(_ context.Context, problemID int32) (db.Problem, error) {
+			return db.Problem{ProblemID: problemID, Title: "Test Problem"}, nil
+		},
+		listTestcasesByProblemIDFunc: func(_ context.Context, _ int32) ([]db.Testcase, error) {
+			return []db.Testcase{
+				{TestcaseID: 1, ProblemID: 1, Stdin: "in", Stdout: "out"},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/problems/1/testcases", map[string]string{"problemID": "1"})
+	err := h.getTestcases(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestPostTestcaseNew_Success(t *testing.T) {
+	var createdParams db.CreateTestcaseParams
+	q := &mockQuerier{
+		createTestcaseFunc: func(_ context.Context, arg db.CreateTestcaseParams) (int32, error) {
+			createdParams = arg
+			return 1, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"stdin":  {"hello"},
+		"stdout": {"world"},
+	}
+	c, rec := newEchoContextWithForm("/admin/problems/1/testcases/new", map[string]string{"problemID": "1"}, form)
+
+	err := h.postTestcaseNew(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if createdParams.ProblemID != 1 {
+		t.Errorf("ProblemID = %d, want 1", createdParams.ProblemID)
+	}
+	if createdParams.Stdin != "hello" {
+		t.Errorf("Stdin = %q, want %q", createdParams.Stdin, "hello")
+	}
+}
+
+func TestPostTestcaseEdit_Success(t *testing.T) {
+	q := &mockQuerier{
+		getTestcaseByIDFunc: func(_ context.Context, testcaseID int32) (db.Testcase, error) {
+			return db.Testcase{TestcaseID: testcaseID, ProblemID: 1}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"stdin":  {"updated_in"},
+		"stdout": {"updated_out"},
+	}
+	c, rec := newEchoContextWithForm("/admin/problems/1/testcases/1", map[string]string{
+		"problemID":  "1",
+		"testcaseID": "1",
+	}, form)
+
+	err := h.postTestcaseEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestPostTestcaseEdit_WrongProblem(t *testing.T) {
+	q := &mockQuerier{
+		getTestcaseByIDFunc: func(_ context.Context, testcaseID int32) (db.Testcase, error) {
+			return db.Testcase{TestcaseID: testcaseID, ProblemID: 2}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	form := url.Values{
+		"stdin":  {"in"},
+		"stdout": {"out"},
+	}
+	c, _ := newEchoContextWithForm("/admin/problems/1/testcases/1", map[string]string{
+		"problemID":  "1",
+		"testcaseID": "1",
+	}, form)
+
+	err := h.postTestcaseEdit(c)
+	if err == nil {
+		t.Fatal("expected error when testcase belongs to different problem")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostTestcaseDelete_Success(t *testing.T) {
+	deletedID := int32(0)
+	q := &mockQuerier{
+		getTestcaseByIDFunc: func(_ context.Context, testcaseID int32) (db.Testcase, error) {
+			return db.Testcase{TestcaseID: testcaseID, ProblemID: 1}, nil
+		},
+		deleteTestcaseFunc: func(_ context.Context, testcaseID int32) error {
+			deletedID = testcaseID
+			return nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContextWithForm("/admin/problems/1/testcases/5/delete", map[string]string{
+		"problemID":  "1",
+		"testcaseID": "5",
+	}, url.Values{})
+
+	err := h.postTestcaseDelete(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if deletedID != 5 {
+		t.Errorf("deleted testcase ID = %d, want 5", deletedID)
+	}
+}
+
+func TestPostTestcaseDelete_WrongProblem(t *testing.T) {
+	q := &mockQuerier{
+		getTestcaseByIDFunc: func(_ context.Context, testcaseID int32) (db.Testcase, error) {
+			return db.Testcase{TestcaseID: testcaseID, ProblemID: 99}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, _ := newEchoContextWithForm("/admin/problems/1/testcases/5/delete", map[string]string{
+		"problemID":  "1",
+		"testcaseID": "5",
+	}, url.Values{})
+
+	err := h.postTestcaseDelete(c)
+	if err == nil {
+		t.Fatal("expected error when testcase belongs to different problem")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostGameStart_Success(t *testing.T) {
+	q := &mockQuerier{
+		getGameByIDFunc: func(_ context.Context, gameID int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{GameID: gameID, ProblemID: 1}, nil
+		},
+		listTestcasesByProblemIDFunc: func(_ context.Context, _ int32) ([]db.Testcase, error) {
+			return []db.Testcase{{TestcaseID: 1, ProblemID: 1}}, nil
+		},
+		updateGameStartedAtFunc: func(_ context.Context, _ db.UpdateGameStartedAtParams) error {
+			return nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContextWithForm("/admin/games/1/start", map[string]string{"gameID": "1"}, url.Values{})
+
+	err := h.postGameStart(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+}
+
+func TestPostGameStart_GameNotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContextWithForm("/admin/games/999/start", map[string]string{"gameID": "999"}, url.Values{})
+
+	err := h.postGameStart(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent game")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostGameStart_NoTestcases(t *testing.T) {
+	q := &mockQuerier{
+		getGameByIDFunc: func(_ context.Context, gameID int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{GameID: gameID, ProblemID: 1}, nil
+		},
+		listTestcasesByProblemIDFunc: func(_ context.Context, _ int32) ([]db.Testcase, error) {
+			return []db.Testcase{}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, _ := newEchoContextWithForm("/admin/games/1/start", map[string]string{"gameID": "1"}, url.Values{})
+
+	err := h.postGameStart(c)
+	if err == nil {
+		t.Fatal("expected error when no testcases")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGetSubmissions_Success(t *testing.T) {
+	q := &mockQuerier{
+		getSubmissionsByGameIDFunc: func(_ context.Context, _ int32) ([]db.Submission, error) {
+			return []db.Submission{
+				{
+					SubmissionID: 1,
+					GameID:       1,
+					UserID:       1,
+					Status:       "pass",
+					CodeSize:     42,
+					CreatedAt:    pgtype.Timestamp{Valid: true},
+				},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/games/1/submissions", map[string]string{"gameID": "1"})
+	err := h.getSubmissions(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetSubmissionDetail_Success(t *testing.T) {
+	q := &mockQuerier{
+		getSubmissionByIDFunc: func(_ context.Context, submissionID int32) (db.Submission, error) {
+			return db.Submission{
+				SubmissionID: submissionID,
+				GameID:       1,
+				UserID:       1,
+				Code:         "<?php echo 1;",
+				CodeSize:     14,
+				Status:       "pass",
+				CreatedAt:    pgtype.Timestamp{Valid: true},
+			}, nil
+		},
+		getTestcaseResultsBySubmIDFunc: func(_ context.Context, _ int32) ([]db.TestcaseResult, error) {
+			return []db.TestcaseResult{
+				{
+					TestcaseResultID: 1,
+					SubmissionID:     1,
+					TestcaseID:       1,
+					Status:           "pass",
+					CreatedAt:        pgtype.Timestamp{Valid: true},
+				},
+			}, nil
+		},
+	}
+	h := newTestHandler(q)
+
+	c, rec := newEchoContext(http.MethodGet, "/admin/games/1/submissions/1", map[string]string{
+		"gameID":       "1",
+		"submissionID": "1",
+	})
+	err := h.getSubmissionDetail(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetSubmissionDetail_NotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContext(http.MethodGet, "/admin/games/1/submissions/999", map[string]string{
+		"gameID":       "1",
+		"submissionID": "999",
+	})
+	err := h.getSubmissionDetail(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent submission")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
