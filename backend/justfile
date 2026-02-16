@@ -7,3 +7,5 @@ test:
 
 gen:
     go generate ./...
+
+ci: check test
