@@ -5,13 +5,15 @@
 	"main": "index.mjs",
 	"scripts": {
 		"check": "npm run check:biome",
-		"check:biome": "biome check --write"
+		"check:biome": "biome check --write",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.9",
 		"hono": "^4.11.9"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.15"
+		"@biomejs/biome": "^2.3.15",
+		"vitest": "^3.2.1"
 	}
 }
