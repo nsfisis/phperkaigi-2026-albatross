@@ -298,6 +298,137 @@ func TestCalcCodeSize_PHP(t *testing.T) {
 	}
 }
 
+// mockTxManager implements db.TxManager for testing.
+type mockTxManager struct {
+	err error
+}
+
+func (m *mockTxManager) RunInTx(_ context.Context, fn func(q db.Querier) error) error {
+	if m.err != nil {
+		return m.err
+	}
+	return fn(&mockTxQuerier{})
+}
+
+// mockTxQuerier is a Querier returned inside RunInTx, recording calls.
+type mockTxQuerier struct {
+	db.Querier
+	updateSubmissionStatusCalled           bool
+	updateGameStateStatusCalled            bool
+	syncGameStateBestScoreSubmissionCalled bool
+}
+
+func (m *mockTxQuerier) UpdateSubmissionStatus(_ context.Context, _ db.UpdateSubmissionStatusParams) error {
+	m.updateSubmissionStatusCalled = true
+	return nil
+}
+
+func (m *mockTxQuerier) UpdateGameStateStatus(_ context.Context, _ db.UpdateGameStateStatusParams) error {
+	m.updateGameStateStatusCalled = true
+	return nil
+}
+
+func (m *mockTxQuerier) SyncGameStateBestScoreSubmission(_ context.Context, _ db.SyncGameStateBestScoreSubmissionParams) error {
+	m.syncGameStateBestScoreSubmissionCalled = true
+	return nil
+}
+
+// recordingTxManager tracks what fn does with the Querier.
+type recordingTxManager struct {
+	lastQuerier *mockTxQuerier
+}
+
+func (m *recordingTxManager) RunInTx(_ context.Context, fn func(q db.Querier) error) error {
+	q := &mockTxQuerier{}
+	m.lastQuerier = q
+	return fn(q)
+}
+
+func TestUpdateSubmissionAndGameState_Success(t *testing.T) {
+	txm := &recordingTxManager{}
+	hub := &Hub{
+		q:   &mockQuerier{},
+		txm: txm,
+		ctx: context.Background(),
+	}
+
+	result := &taskqueue.TaskResultRunTestcase{
+		TaskPayload: &taskqueue.TaskPayloadRunTestcase{
+			GameID:       1,
+			UserID:       2,
+			SubmissionID: 3,
+		},
+	}
+
+	err := hub.updateSubmissionAndGameState(result, "success")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !txm.lastQuerier.updateSubmissionStatusCalled {
+		t.Error("expected UpdateSubmissionStatus to be called")
+	}
+	if !txm.lastQuerier.updateGameStateStatusCalled {
+		t.Error("expected UpdateGameStateStatus to be called")
+	}
+	if !txm.lastQuerier.syncGameStateBestScoreSubmissionCalled {
+		t.Error("expected SyncGameStateBestScoreSubmission to be called for 'success' status")
+	}
+}
+
+func TestUpdateSubmissionAndGameState_Failure(t *testing.T) {
+	txm := &recordingTxManager{}
+	hub := &Hub{
+		q:   &mockQuerier{},
+		txm: txm,
+		ctx: context.Background(),
+	}
+
+	result := &taskqueue.TaskResultRunTestcase{
+		TaskPayload: &taskqueue.TaskPayloadRunTestcase{
+			GameID:       1,
+			UserID:       2,
+			SubmissionID: 3,
+		},
+	}
+
+	err := hub.updateSubmissionAndGameState(result, "wrong_answer")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !txm.lastQuerier.updateSubmissionStatusCalled {
+		t.Error("expected UpdateSubmissionStatus to be called")
+	}
+	if !txm.lastQuerier.updateGameStateStatusCalled {
+		t.Error("expected UpdateGameStateStatus to be called")
+	}
+	if txm.lastQuerier.syncGameStateBestScoreSubmissionCalled {
+		t.Error("expected SyncGameStateBestScoreSubmission NOT to be called for 'wrong_answer' status")
+	}
+}
+
+func TestUpdateSubmissionAndGameState_TxError(t *testing.T) {
+	txErr := errors.New("tx failed")
+	txm := &mockTxManager{err: txErr}
+	hub := &Hub{
+		q:   &mockQuerier{},
+		txm: txm,
+		ctx: context.Background(),
+	}
+
+	result := &taskqueue.TaskResultRunTestcase{
+		TaskPayload: &taskqueue.TaskPayloadRunTestcase{
+			GameID:       1,
+			UserID:       2,
+			SubmissionID: 3,
+		},
+	}
+
+	err := hub.updateSubmissionAndGameState(result, "success")
+	if !errors.Is(err, txErr) {
+		t.Errorf("expected tx error, got: %v", err)
+	}
+}
+
 func TestIsTestcaseResultCorrect(t *testing.T) {
 	tests := []struct {
 		name     string
