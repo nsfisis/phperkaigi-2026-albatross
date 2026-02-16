@@ -35,9 +35,9 @@ func (m *mockTaskQueue) EnqueueTaskRunTestcase(gameID, userID, submissionID, tes
 // mockQuerier implements db.Querier for testing.
 type mockQuerier struct {
 	db.Querier
-	listTestcasesByGameIDFunc   func(ctx context.Context, gameID int32) ([]db.Testcase, error)
-	createTestcaseResultFunc    func(ctx context.Context, arg db.CreateTestcaseResultParams) error
-	createTestcaseResultCalls   []db.CreateTestcaseResultParams
+	listTestcasesByGameIDFunc func(ctx context.Context, gameID int32) ([]db.Testcase, error)
+	createTestcaseResultFunc  func(ctx context.Context, arg db.CreateTestcaseResultParams) error
+	createTestcaseResultCalls []db.CreateTestcaseResultParams
 }
 
 func (m *mockQuerier) ListTestcasesByGameID(ctx context.Context, gameID int32) ([]db.Testcase, error) {

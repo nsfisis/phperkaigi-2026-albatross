@@ -16,7 +16,7 @@ import (
 // mockQuerier implements db.Querier for testing.
 type mockQuerier struct {
 	db.Querier
-	getGameByIDFunc    func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
+	getGameByIDFunc     func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
 	listMainPlayersFunc func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
 }
 
@@ -37,7 +37,7 @@ func (m *mockQuerier) ListMainPlayers(ctx context.Context, gameIDs []int32) ([]d
 // mockTxManager implements db.TxManager for testing.
 type mockTxManager struct{}
 
-func (m *mockTxManager) RunInTx(ctx context.Context, fn func(q db.Querier) error) error {
+func (m *mockTxManager) RunInTx(_ context.Context, fn func(q db.Querier) error) error {
 	return fn(&mockQuerier{})
 }
 
