@@ -1,5 +1,5 @@
-import PHPWasm from "./php-wasm.js";
 import { buildResult, createIOCallbacks, preprocessCode } from "./lib.mjs";
+import PHPWasm from "./php-wasm.js";
 
 process.once("message", async ({ code: originalCode, input }) => {
 	const code = preprocessCode(originalCode);

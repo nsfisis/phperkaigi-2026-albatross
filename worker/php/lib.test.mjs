@@ -122,7 +122,12 @@ describe("createIOCallbacks", () => {
 
 describe("buildResult", () => {
 	it("returns success when err is null and result is 0", () => {
-		const result = buildResult(null, 0, () => "out", () => "");
+		const result = buildResult(
+			null,
+			0,
+			() => "out",
+			() => "",
+		);
 		expect(result).toEqual({
 			status: "success",
 			stdout: "out",
@@ -131,7 +136,12 @@ describe("buildResult", () => {
 	});
 
 	it("returns runtime_error when result is non-zero", () => {
-		const result = buildResult(null, 1, () => "out", () => "err");
+		const result = buildResult(
+			null,
+			1,
+			() => "out",
+			() => "err",
+		);
 		expect(result).toEqual({
 			status: "runtime_error",
 			stdout: "out",
@@ -141,7 +151,12 @@ describe("buildResult", () => {
 
 	it("returns runtime_error with concatenated stderr when err is thrown", () => {
 		const err = new Error("fatal");
-		const result = buildResult(err, undefined, () => "out", () => "err");
+		const result = buildResult(
+			err,
+			undefined,
+			() => "out",
+			() => "err",
+		);
 		expect(result.status).toBe("runtime_error");
 		expect(result.stdout).toBe("out");
 		expect(result.stderr).toContain("err");
