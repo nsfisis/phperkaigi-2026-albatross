@@ -15,12 +15,12 @@ jobs:
 
       - run: |
           cd nil.ninja
-          cd vhosts/t/albatross-swift-2025
+          cd vhosts/t/albatross-php-2026
           git fetch --prune origin
           git switch -d origin/main
           cd "$(git rev-parse --show-superproject-working-tree)"
-          git add vhosts/t/albatross-swift-2025
+          git add vhosts/t/albatross-php-2026
           git config user.name nsfisis
           git config user.email nsfisis@gmail.com
-          git commit -m "[automated] Update 'vhosts/t/albatross-swift-2025' (${GITHUB_SHA})"
+          git commit -m "[automated] Update 'vhosts/t/albatross-php-2026' (${GITHUB_SHA})"
           git push origin main

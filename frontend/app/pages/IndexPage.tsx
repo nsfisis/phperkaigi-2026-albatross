@@ -10,11 +10,11 @@ export default function IndexPage() {
 		<div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-y-6">
 			<img
 				src={`${BASE_PATH}logo.svg`}
-				alt="iOSDC Japan 2025"
+				alt="PHPerKaigi 2026"
 				className="w-96 h-auto"
 			/>
 			<div className="text-center">
-				<div className="font-bold text-transparent bg-clip-text bg-iosdc-japan">
+				<div className="font-bold text-transparent bg-clip-text bg-phperkaigi">
 					<div className="text-6xl">Swift Code Battle</div>
 				</div>
 			</div>
