@@ -1,0 +1,48 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/tournaments">Tournaments</a>
+{{ end }}
+
+{{ define "content" }}
+<form method="post">
+  <div>
+    <label>Display Name</label>
+    <input type="text" name="display_name" value="{{ .Tournament.DisplayName }}" required>
+  </div>
+
+  <h3>Bracket (size={{ .Tournament.BracketSize }}, rounds={{ .Tournament.NumRounds }})</h3>
+
+  <h3>Entries (seed → user)</h3>
+  {{ range .Seeds }}
+    {{ $seed := . }}
+    <div>
+      <label>Seed {{ $seed }}</label>
+      <select name="seed_{{ $seed }}">
+        <option value="0">-- none (bye) --</option>
+        {{ range $.Users }}
+          <option value="{{ .UserID }}" {{ if eq .UserID (index $.SeedUserMap $seed) }}selected{{ end }}>{{ .Username }} (id={{ .UserID }})</option>
+        {{ end }}
+      </select>
+    </div>
+  {{ end }}
+
+  <h3>Matches (game assignment)</h3>
+  {{ range .Matches }}
+    <div>
+      <label>Round {{ .Round }} Pos {{ .Position }} ({{ .Description }})</label>
+      {{ $matchID := .MatchID }}
+      <select name="match_{{ $matchID }}">
+        <option value="0">-- no game --</option>
+        {{ range $.Games }}
+          <option value="{{ .GameID }}" {{ if eq .GameID (index $.MatchGameMap $matchID) }}selected{{ end }}>{{ .DisplayName }} (id={{ .GameID }})</option>
+        {{ end }}
+      </select>
+    </div>
+  {{ end }}
+
+  <div>
+    <button type="submit">Save</button>
+  </div>
+</form>
+{{ end }}

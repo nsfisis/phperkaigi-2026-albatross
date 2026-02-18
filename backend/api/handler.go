@@ -454,97 +454,262 @@ func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySu
 }
 
 func (h *Handler) GetTournament(ctx context.Context, request GetTournamentRequestObject, _ *db.User) (GetTournamentResponseObject, error) {
-	gameIDs := []int32{
-		int32(request.Params.Game1),
-		int32(request.Params.Game2),
-		int32(request.Params.Game3),
-		int32(request.Params.Game4),
-		int32(request.Params.Game5),
+	tournamentID := int32(request.TournamentID)
+
+	tournament, err := h.q.GetTournamentByID(ctx, tournamentID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return GetTournament404JSONResponse{Message: "Tournament not found"}, nil
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	matches := make([]TournamentMatch, 0, 5)
+	entryRows, err := h.q.ListTournamentEntries(ctx, tournamentID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-	for _, gameID := range gameIDs {
-		gameRow, err := h.q.GetGameByID(ctx, gameID)
+	seedToUser := make(map[int]User)
+	entries := make([]TournamentEntry, len(entryRows))
+	for i, e := range entryRows {
+		u := User{
+			UserID:      int(e.UserID),
+			Username:    e.Username,
+			DisplayName: e.DisplayName,
+			IconPath:    e.IconPath,
+			IsAdmin:     e.IsAdmin,
+			Label:       toNullable(e.Label),
+		}
+		seedToUser[int(e.Seed)] = u
+		entries[i] = TournamentEntry{
+			User: u,
+			Seed: int(e.Seed),
+		}
+	}
+
+	matchRows, err := h.q.ListTournamentMatches(ctx, tournamentID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	bracketSize := int(tournament.BracketSize)
+	numRounds := int(tournament.NumRounds)
+	bracketSeeds := standardBracketSeeds(bracketSize)
+
+	// Index matches by (round, position)
+	type matchKey struct{ round, position int }
+	matchByKey := make(map[matchKey]db.TournamentMatch)
+	for _, m := range matchRows {
+		matchByKey[matchKey{int(m.Round), int(m.Position)}] = m
+	}
+
+	// Collect game IDs for batch fetching
+	gameIDs := make(map[int32]bool)
+	for _, m := range matchRows {
+		if m.GameID != nil {
+			gameIDs[*m.GameID] = true
+		}
+	}
+
+	// Fetch rankings for all games that have started
+	type rankingResult struct {
+		scores   map[int]int // userID -> score
+		winnerID int
+	}
+	gameRankings := make(map[int32]*rankingResult)
+	for gid := range gameIDs {
+		gameRow, err := h.q.GetGameByID(ctx, gid)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
+			continue
+		}
+		if !gameRow.StartedAt.Valid {
+			continue
+		}
+		rankingRows, err := h.q.GetRanking(ctx, gid)
+		if err != nil || len(rankingRows) == 0 {
+			continue
+		}
+		rr := &rankingResult{scores: make(map[int]int)}
+		for i, r := range rankingRows {
+			rr.scores[int(r.User.UserID)] = int(r.Submission.CodeSize)
+			if i == 0 {
+				rr.winnerID = int(r.User.UserID)
 			}
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
+		gameRankings[gid] = rr
+	}
 
-		playerRows, err := h.q.ListMainPlayers(ctx, []int32{gameID})
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
+	// Build match results bottom-up
+	type matchResult struct {
+		player1   *User
+		player2   *User
+		p1Score   *int
+		p2Score   *int
+		winnerUID *int
+		isBye     bool
+	}
+	resultByKey := make(map[matchKey]*matchResult)
 
-		var player1, player2 *User
-		if len(playerRows) > 0 {
-			p1 := User{
-				UserID:      int(playerRows[0].UserID),
-				Username:    playerRows[0].Username,
-				DisplayName: playerRows[0].DisplayName,
-				IconPath:    playerRows[0].IconPath,
-				IsAdmin:     playerRows[0].IsAdmin,
-				Label:       toNullable(playerRows[0].Label),
+	for round := 0; round < numRounds; round++ {
+		numPositions := bracketSize / (1 << (round + 1))
+		for pos := 0; pos < numPositions; pos++ {
+			m, exists := matchByKey[matchKey{round, pos}]
+			mr := &matchResult{}
+
+			if round == 0 {
+				// First round: resolve players from bracket seeds
+				slot1 := pos * 2
+				slot2 := pos*2 + 1
+				seed1 := bracketSeeds[slot1]
+				seed2 := bracketSeeds[slot2]
+
+				if u, ok := seedToUser[seed1]; ok {
+					mr.player1 = &u
+				}
+				if u, ok := seedToUser[seed2]; ok {
+					mr.player2 = &u
+				}
+			} else {
+				// Later rounds: resolve from child match winners
+				child1 := resultByKey[matchKey{round - 1, pos * 2}]
+				child2 := resultByKey[matchKey{round - 1, pos*2 + 1}]
+
+				if child1 != nil && child1.winnerUID != nil {
+					if u, ok := seedToUser[findSeedByUserID(entries, *child1.winnerUID)]; ok {
+						mr.player1 = &u
+					}
+				}
+				if child2 != nil && child2.winnerUID != nil {
+					if u, ok := seedToUser[findSeedByUserID(entries, *child2.winnerUID)]; ok {
+						mr.player2 = &u
+					}
+				}
 			}
-			player1 = &p1
-		}
-		if len(playerRows) > 1 {
-			p2 := User{
-				UserID:      int(playerRows[1].UserID),
-				Username:    playerRows[1].Username,
-				DisplayName: playerRows[1].DisplayName,
-				IconPath:    playerRows[1].IconPath,
-				IsAdmin:     playerRows[1].IsAdmin,
-				Label:       toNullable(playerRows[1].Label),
+
+			// Check for bye
+			if mr.player1 == nil && mr.player2 != nil {
+				mr.isBye = true
+				uid := mr.player2.UserID
+				mr.winnerUID = &uid
+			} else if mr.player1 != nil && mr.player2 == nil {
+				mr.isBye = true
+				uid := mr.player1.UserID
+				mr.winnerUID = &uid
 			}
-			player2 = &p2
-		}
 
-		var winnerID *int
-		var player1Score, player2Score *int
-
-		if gameRow.StartedAt.Valid {
-			rankingRows, err := h.q.GetRanking(ctx, gameID)
-			if err == nil && len(rankingRows) > 0 {
-				// Find scores for each player
-				for _, ranking := range rankingRows {
-					userID := int(ranking.User.UserID)
-					score := int(ranking.Submission.CodeSize)
-
-					if player1 != nil && player1.UserID == userID {
-						player1Score = &score
-						if winnerID == nil {
-							winnerID = &userID
+			// Resolve scores from game
+			if exists && m.GameID != nil && !mr.isBye {
+				if rr, ok := gameRankings[*m.GameID]; ok {
+					if mr.player1 != nil {
+						if s, ok := rr.scores[mr.player1.UserID]; ok {
+							score := s
+							mr.p1Score = &score
 						}
 					}
-					if player2 != nil && player2.UserID == userID {
-						player2Score = &score
-						if winnerID == nil {
-							winnerID = &userID
+					if mr.player2 != nil {
+						if s, ok := rr.scores[mr.player2.UserID]; ok {
+							score := s
+							mr.p2Score = &score
+						}
+					}
+					// Winner is the one with the best (lowest) score in the ranking
+					if mr.player1 != nil && mr.player2 != nil {
+						if rr.winnerID == mr.player1.UserID || rr.winnerID == mr.player2.UserID {
+							w := rr.winnerID
+							mr.winnerUID = &w
+						} else {
+							// Both players have scores; pick the one with lower score
+							if mr.p1Score != nil && mr.p2Score != nil {
+								if *mr.p1Score <= *mr.p2Score {
+									w := mr.player1.UserID
+									mr.winnerUID = &w
+								} else {
+									w := mr.player2.UserID
+									mr.winnerUID = &w
+								}
+							}
 						}
 					}
 				}
 			}
-		}
 
-		match := TournamentMatch{
-			GameID:       int(gameID),
-			Player1:      player1,
-			Player2:      player2,
-			Player1Score: player1Score,
-			Player2Score: player2Score,
-			Winner:       winnerID,
+			resultByKey[matchKey{round, pos}] = mr
 		}
-		matches = append(matches, match)
+	}
+
+	// Build API response matches
+	apiMatches := make([]TournamentMatch, 0, len(matchRows))
+	for round := 0; round < numRounds; round++ {
+		numPositions := bracketSize / (1 << (round + 1))
+		for pos := 0; pos < numPositions; pos++ {
+			m, exists := matchByKey[matchKey{round, pos}]
+			mr := resultByKey[matchKey{round, pos}]
+
+			matchID := 0
+			var gameID *int
+			if exists {
+				matchID = int(m.TournamentMatchID)
+				if m.GameID != nil {
+					gid := int(*m.GameID)
+					gameID = &gid
+				}
+			}
+
+			apiMatches = append(apiMatches, TournamentMatch{
+				TournamentMatchID: matchID,
+				Round:             round,
+				Position:          pos,
+				GameID:            gameID,
+				Player1:           mr.player1,
+				Player2:           mr.player2,
+				Player1Score:      mr.p1Score,
+				Player2Score:      mr.p2Score,
+				WinnerUserID:      mr.winnerUID,
+				IsBye:             mr.isBye,
+			})
+		}
 	}
 
 	return GetTournament200JSONResponse{
 		Tournament: Tournament{
-			Matches: matches,
+			TournamentID: int(tournament.TournamentID),
+			DisplayName:  tournament.DisplayName,
+			BracketSize:  bracketSize,
+			NumRounds:    numRounds,
+			Entries:      entries,
+			Matches:      apiMatches,
 		},
 	}, nil
+}
+
+func findSeedByUserID(entries []TournamentEntry, userID int) int {
+	for _, e := range entries {
+		if e.User.UserID == userID {
+			return e.Seed
+		}
+	}
+	return 0
+}
+
+// standardBracketSeeds returns the seed assignments for each slot in a standard
+// single-elimination bracket. For bracket_size=8:
+// Position: [0]=1, [1]=8, [2]=5, [3]=4, [4]=3, [5]=6, [6]=7, [7]=2
+// This ensures Seed 1 vs Seed 2 are on opposite sides, and higher seeds face lower seeds.
+func standardBracketSeeds(bracketSize int) []int {
+	seeds := make([]int, bracketSize)
+	seeds[0] = 1
+	// Build the bracket by repeatedly splitting
+	for size := 2; size <= bracketSize; size *= 2 {
+		// For each pair in the current level, the new opponent for seed[i]
+		// is (size + 1 - seed[i])
+		temp := make([]int, size)
+		for i := 0; i < size/2; i++ {
+			temp[i*2] = seeds[i]
+			temp[i*2+1] = size + 1 - seeds[i]
+		}
+		copy(seeds, temp)
+	}
+	return seeds
 }
 
 func isGameRunning(game db.GetGameByIDRow) bool {

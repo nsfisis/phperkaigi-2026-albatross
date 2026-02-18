@@ -74,6 +74,29 @@ type TestcaseResult struct {
 	CreatedAt        pgtype.Timestamp
 }
 
+type Tournament struct {
+	TournamentID int32
+	DisplayName  string
+	BracketSize  int32
+	NumRounds    int32
+	CreatedAt    pgtype.Timestamp
+}
+
+type TournamentEntry struct {
+	TournamentEntryID int32
+	TournamentID      int32
+	UserID            int32
+	Seed              int32
+}
+
+type TournamentMatch struct {
+	TournamentMatchID int32
+	TournamentID      int32
+	Round             int32
+	Position          int32
+	GameID            *int32
+}
+
 type User struct {
 	UserID      int32
 	Username    string

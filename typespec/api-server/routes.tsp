@@ -110,16 +110,10 @@ op getGameWatchLatestStates(@path game_id: integer): {
 
 // ---------- Tournament ----------
 
-@route("/tournament")
+@route("/tournaments/{tournament_id}")
 @get
 @operationId("getTournament")
-op getTournament(
-  @query game1: integer,
-  @query game2: integer,
-  @query game3: integer,
-  @query game4: integer,
-  @query game5: integer,
-): {
+op getTournament(@path tournament_id: integer): {
   @body body: {
     tournament: Tournament;
   };

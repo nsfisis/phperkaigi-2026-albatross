@@ -104,3 +104,33 @@ CREATE TABLE sessions (
 );
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+CREATE TABLE tournaments (
+    tournament_id    SERIAL       PRIMARY KEY,
+    display_name     VARCHAR(255) NOT NULL,
+    bracket_size     INT          NOT NULL,
+    num_rounds       INT          NOT NULL,
+    created_at       TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE tournament_entries (
+    tournament_entry_id  SERIAL  PRIMARY KEY,
+    tournament_id        INT     NOT NULL,
+    user_id              INT     NOT NULL,
+    seed                 INT     NOT NULL,
+    CONSTRAINT fk_tournament_entries_tournament_id FOREIGN KEY(tournament_id) REFERENCES tournaments(tournament_id),
+    CONSTRAINT fk_tournament_entries_user_id FOREIGN KEY(user_id) REFERENCES users(user_id),
+    CONSTRAINT uq_tournament_entries_tournament_user UNIQUE(tournament_id, user_id),
+    CONSTRAINT uq_tournament_entries_tournament_seed UNIQUE(tournament_id, seed)
+);
+
+CREATE TABLE tournament_matches (
+    tournament_match_id  SERIAL  PRIMARY KEY,
+    tournament_id        INT     NOT NULL,
+    round                INT     NOT NULL,
+    position             INT     NOT NULL,
+    game_id              INT,
+    CONSTRAINT fk_tournament_matches_tournament_id FOREIGN KEY(tournament_id) REFERENCES tournaments(tournament_id),
+    CONSTRAINT fk_tournament_matches_game_id FOREIGN KEY(game_id) REFERENCES games(game_id),
+    CONSTRAINT uq_tournament_matches_tournament_round_position UNIQUE(tournament_id, round, position)
+);

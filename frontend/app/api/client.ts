@@ -108,16 +108,10 @@ class AuthenticatedApiClient {
 		return data;
 	}
 
-	async getTournament(
-		game1: number,
-		game2: number,
-		game3: number,
-		game4: number,
-		game5: number,
-	) {
-		const { data, error } = await client.GET("/tournament", {
+	async getTournament(tournamentId: number) {
+		const { data, error } = await client.GET("/tournaments/{tournament_id}", {
 			params: {
-				query: { game1, game2, game3, game4, game5 },
+				path: { tournament_id: tournamentId },
 			},
 		});
 		if (error) throw new Error(error.message);

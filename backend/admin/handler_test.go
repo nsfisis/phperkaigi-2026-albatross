@@ -44,6 +44,16 @@ type mockQuerier struct {
 	getTestcaseResultsBySubmIDFunc func(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error)
 	listTestcasesByGameIDFunc      func(ctx context.Context, gameID int32) ([]db.Testcase, error)
 	updateGameStartedAtFunc        func(ctx context.Context, arg db.UpdateGameStartedAtParams) error
+	listTournamentsFunc            func(ctx context.Context) ([]db.Tournament, error)
+	getTournamentByIDFunc          func(ctx context.Context, tournamentID int32) (db.Tournament, error)
+	createTournamentFunc           func(ctx context.Context, arg db.CreateTournamentParams) (int32, error)
+	updateTournamentFunc           func(ctx context.Context, arg db.UpdateTournamentParams) error
+	listTournamentEntriesFunc      func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
+	deleteTournamentEntriesFunc    func(ctx context.Context, tournamentID int32) error
+	createTournamentEntryFunc      func(ctx context.Context, arg db.CreateTournamentEntryParams) error
+	listTournamentMatchesFunc      func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
+	createTournamentMatchFunc      func(ctx context.Context, arg db.CreateTournamentMatchParams) error
+	updateTournamentMatchGameFunc  func(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error
 }
 
 func (m *mockQuerier) GetUserByID(ctx context.Context, userID int32) (db.User, error) {
@@ -202,6 +212,76 @@ func (m *mockQuerier) UpdateGameStartedAt(ctx context.Context, arg db.UpdateGame
 
 func (m *mockQuerier) ListTestcasesByProblemIDForUpdate(ctx context.Context, problemID int32) ([]db.Testcase, error) {
 	return m.ListTestcasesByProblemID(ctx, problemID)
+}
+
+func (m *mockQuerier) ListTournaments(ctx context.Context) ([]db.Tournament, error) {
+	if m.listTournamentsFunc != nil {
+		return m.listTournamentsFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetTournamentByID(ctx context.Context, tournamentID int32) (db.Tournament, error) {
+	if m.getTournamentByIDFunc != nil {
+		return m.getTournamentByIDFunc(ctx, tournamentID)
+	}
+	return db.Tournament{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) CreateTournament(ctx context.Context, arg db.CreateTournamentParams) (int32, error) {
+	if m.createTournamentFunc != nil {
+		return m.createTournamentFunc(ctx, arg)
+	}
+	return 1, nil
+}
+
+func (m *mockQuerier) UpdateTournament(ctx context.Context, arg db.UpdateTournamentParams) error {
+	if m.updateTournamentFunc != nil {
+		return m.updateTournamentFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListTournamentEntries(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error) {
+	if m.listTournamentEntriesFunc != nil {
+		return m.listTournamentEntriesFunc(ctx, tournamentID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) DeleteTournamentEntries(ctx context.Context, tournamentID int32) error {
+	if m.deleteTournamentEntriesFunc != nil {
+		return m.deleteTournamentEntriesFunc(ctx, tournamentID)
+	}
+	return nil
+}
+
+func (m *mockQuerier) CreateTournamentEntry(ctx context.Context, arg db.CreateTournamentEntryParams) error {
+	if m.createTournamentEntryFunc != nil {
+		return m.createTournamentEntryFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) ListTournamentMatches(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error) {
+	if m.listTournamentMatchesFunc != nil {
+		return m.listTournamentMatchesFunc(ctx, tournamentID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) CreateTournamentMatch(ctx context.Context, arg db.CreateTournamentMatchParams) error {
+	if m.createTournamentMatchFunc != nil {
+		return m.createTournamentMatchFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) UpdateTournamentMatchGame(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error {
+	if m.updateTournamentMatchGameFunc != nil {
+		return m.updateTournamentMatchGameFunc(ctx, arg)
+	}
+	return nil
 }
 
 // mockTxManager implements db.TxManager for testing.
@@ -1053,6 +1133,224 @@ func TestGetSubmissionDetail_NotFound(t *testing.T) {
 	err := h.getSubmissionDetail(c)
 	if err == nil {
 		t.Fatal("expected error for non-existent submission")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+// --- Tournament admin tests ---
+
+func TestNextPowerOf2(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		{2, 2},
+		{3, 4},
+		{4, 4},
+		{5, 8},
+		{6, 8},
+		{7, 8},
+		{8, 8},
+		{9, 16},
+	}
+	for _, tt := range tests {
+		got := nextPowerOf2(tt.input)
+		if got != tt.expected {
+			t.Errorf("nextPowerOf2(%d) = %d, want %d", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestLog2Int(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		{1, 0},
+		{2, 1},
+		{4, 2},
+		{8, 3},
+		{16, 4},
+	}
+	for _, tt := range tests {
+		got := log2Int(tt.input)
+		if got != tt.expected {
+			t.Errorf("log2Int(%d) = %d, want %d", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestGetTournaments_Empty(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	c, rec := newEchoContext(http.MethodGet, "/admin/tournaments", nil)
+	err := h.getTournaments(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestGetTournaments_WithData(t *testing.T) {
+	h := newTestHandler(&mockQuerier{
+		listTournamentsFunc: func(_ context.Context) ([]db.Tournament, error) {
+			return []db.Tournament{
+				{TournamentID: 1, DisplayName: "Tournament A", BracketSize: 4},
+				{TournamentID: 2, DisplayName: "Tournament B", BracketSize: 8},
+			}, nil
+		},
+	})
+	c, _ := newEchoContext(http.MethodGet, "/admin/tournaments", nil)
+	err := h.getTournaments(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetTournamentNew(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	c, rec := newEchoContext(http.MethodGet, "/admin/tournaments/new", nil)
+	err := h.getTournamentNew(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestPostTournamentNew_Success(t *testing.T) {
+	var createdParams db.CreateTournamentParams
+	var matchCount int
+	h := &Handler{
+		q: &mockQuerier{},
+		txm: &mockTxManager{
+			runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
+				return fn(&mockQuerier{
+					createTournamentFunc: func(_ context.Context, arg db.CreateTournamentParams) (int32, error) {
+						createdParams = arg
+						return 1, nil
+					},
+					createTournamentMatchFunc: func(_ context.Context, _ db.CreateTournamentMatchParams) error {
+						matchCount++
+						return nil
+					},
+				})
+			},
+		},
+		conf: &config.Config{BasePath: "/test/"},
+	}
+	form := url.Values{
+		"display_name":     {"Test Tournament"},
+		"num_participants": {"3"},
+	}
+	c, rec := newEchoContextWithForm("/admin/tournaments/new", nil, form)
+	err := h.postTournamentNew(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if createdParams.DisplayName != "Test Tournament" {
+		t.Errorf("display_name = %q, want %q", createdParams.DisplayName, "Test Tournament")
+	}
+	if createdParams.BracketSize != 4 {
+		t.Errorf("bracket_size = %d, want 4", createdParams.BracketSize)
+	}
+	if createdParams.NumRounds != 2 {
+		t.Errorf("num_rounds = %d, want 2", createdParams.NumRounds)
+	}
+	// bracket_size=4, num_rounds=2 → round 0: 2 matches + round 1: 1 match = 3 matches
+	if matchCount != 3 {
+		t.Errorf("match count = %d, want 3", matchCount)
+	}
+}
+
+func TestPostTournamentNew_InvalidParticipants(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	form := url.Values{
+		"display_name":     {"Test"},
+		"num_participants": {"abc"},
+	}
+	c, _ := newEchoContextWithForm("/admin/tournaments/new", nil, form)
+	err := h.postTournamentNew(c)
+	if err == nil {
+		t.Fatal("expected error for invalid num_participants")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGetTournamentEdit_NotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	c, _ := newEchoContext(http.MethodGet, "/admin/tournaments/999", map[string]string{
+		"tournamentID": "999",
+	})
+	err := h.getTournamentEdit(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent tournament")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestGetTournamentEdit_Success(t *testing.T) {
+	h := newTestHandler(&mockQuerier{
+		getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+			return db.Tournament{
+				TournamentID: 1,
+				DisplayName:  "Test",
+				BracketSize:  4,
+				NumRounds:    2,
+			}, nil
+		},
+		listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
+			return []db.TournamentMatch{
+				{TournamentMatchID: 1, Round: 0, Position: 0},
+			}, nil
+		},
+	})
+	c, rec := newEchoContext(http.MethodGet, "/admin/tournaments/1", map[string]string{
+		"tournamentID": "1",
+	})
+	err := h.getTournamentEdit(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestPostTournamentEdit_NotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+	form := url.Values{
+		"display_name": {"Updated"},
+	}
+	c, _ := newEchoContextWithForm("/admin/tournaments/999", map[string]string{
+		"tournamentID": "999",
+	}, form)
+	err := h.postTournamentEdit(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent tournament")
 	}
 	httpErr, ok := err.(*echo.HTTPError)
 	if !ok {

@@ -79,6 +79,12 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.GET("/problems/:problemID/testcases/:testcaseID", h.getTestcaseEdit)
 	g.POST("/problems/:problemID/testcases/:testcaseID", h.postTestcaseEdit)
 	g.POST("/problems/:problemID/testcases/:testcaseID/delete", h.postTestcaseDelete)
+
+	g.GET("/tournaments", h.getTournaments)
+	g.GET("/tournaments/new", h.getTournamentNew)
+	g.POST("/tournaments/new", h.postTournamentNew)
+	g.GET("/tournaments/:tournamentID", h.getTournamentEdit)
+	g.POST("/tournaments/:tournamentID", h.postTournamentEdit)
 }
 
 func (h *Handler) getDashboard(c echo.Context) error {
@@ -950,4 +956,285 @@ func (h *Handler) postTestcaseDelete(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/problems/"+strconv.Itoa(problemID)+"/testcases")
+}
+
+func (h *Handler) getTournaments(c echo.Context) error {
+	rows, err := h.q.ListTournaments(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	tournaments := make([]echo.Map, len(rows))
+	for i, t := range rows {
+		tournaments[i] = echo.Map{
+			"TournamentID": t.TournamentID,
+			"DisplayName":  t.DisplayName,
+			"BracketSize":  t.BracketSize,
+		}
+	}
+
+	return c.Render(http.StatusOK, "tournaments", echo.Map{
+		"BasePath":    h.conf.BasePath,
+		"Title":       "Tournaments",
+		"Tournaments": tournaments,
+	})
+}
+
+func (h *Handler) getTournamentNew(c echo.Context) error {
+	return c.Render(http.StatusOK, "tournament_new", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "New Tournament",
+	})
+}
+
+func nextPowerOf2(n int) int {
+	p := 1
+	for p < n {
+		p *= 2
+	}
+	return p
+}
+
+func log2Int(n int) int {
+	r := 0
+	for n > 1 {
+		n /= 2
+		r++
+	}
+	return r
+}
+
+func (h *Handler) postTournamentNew(c echo.Context) error {
+	displayName := c.FormValue("display_name")
+	numParticipants, err := strconv.Atoi(c.FormValue("num_participants"))
+	if err != nil || numParticipants < 2 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid num_participants")
+	}
+
+	bracketSize := nextPowerOf2(numParticipants)
+	numRounds := log2Int(bracketSize)
+
+	ctx := c.Request().Context()
+	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		tournamentID, err := qtx.CreateTournament(ctx, db.CreateTournamentParams{
+			DisplayName: displayName,
+			BracketSize: int32(bracketSize),
+			NumRounds:   int32(numRounds),
+		})
+		if err != nil {
+			return err
+		}
+		// Create match slots for all rounds
+		for round := 0; round < numRounds; round++ {
+			numPositions := bracketSize / (1 << (round + 1))
+			for pos := 0; pos < numPositions; pos++ {
+				if err := qtx.CreateTournamentMatch(ctx, db.CreateTournamentMatchParams{
+					TournamentID: tournamentID,
+					Round:        int32(round),
+					Position:     int32(pos),
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/tournaments")
+}
+
+func (h *Handler) getTournamentEdit(c echo.Context) error {
+	tournamentID, err := strconv.Atoi(c.Param("tournamentID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid tournament id")
+	}
+	ctx := c.Request().Context()
+
+	tournament, err := h.q.GetTournamentByID(ctx, int32(tournamentID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	entryRows, err := h.q.ListTournamentEntries(ctx, int32(tournamentID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	seedUserMap := make(map[int]int)
+	for _, e := range entryRows {
+		seedUserMap[int(e.Seed)] = int(e.UserID)
+	}
+
+	matchRows, err := h.q.ListTournamentMatches(ctx, int32(tournamentID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	matchGameMap := make(map[int]int)
+	var matches []echo.Map
+	for _, m := range matchRows {
+		gameID := 0
+		if m.GameID != nil {
+			gameID = int(*m.GameID)
+		}
+		matchGameMap[int(m.TournamentMatchID)] = gameID
+		matches = append(matches, echo.Map{
+			"MatchID":     int(m.TournamentMatchID),
+			"Round":       int(m.Round),
+			"Position":    int(m.Position),
+			"Description": "R" + strconv.Itoa(int(m.Round)) + "P" + strconv.Itoa(int(m.Position)),
+			"IsBye":       false,
+		})
+	}
+
+	userRows, err := h.q.ListUsers(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	var users []echo.Map
+	for _, r := range userRows {
+		users = append(users, echo.Map{
+			"UserID":   int(r.UserID),
+			"Username": r.Username,
+		})
+	}
+
+	gameRows, err := h.q.ListAllGames(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	var games []echo.Map
+	for _, g := range gameRows {
+		games = append(games, echo.Map{
+			"GameID":      int(g.GameID),
+			"DisplayName": g.DisplayName,
+		})
+	}
+
+	seeds := make([]int, tournament.BracketSize)
+	for i := range seeds {
+		seeds[i] = i + 1
+	}
+
+	return c.Render(http.StatusOK, "tournament_edit", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Tournament Edit",
+		"Tournament": echo.Map{
+			"TournamentID": tournament.TournamentID,
+			"DisplayName":  tournament.DisplayName,
+			"BracketSize":  tournament.BracketSize,
+			"NumRounds":    tournament.NumRounds,
+		},
+		"Seeds":        seeds,
+		"SeedUserMap":  seedUserMap,
+		"Matches":      matches,
+		"MatchGameMap": matchGameMap,
+		"Users":        users,
+		"Games":        games,
+	})
+}
+
+func (h *Handler) postTournamentEdit(c echo.Context) error {
+	tournamentID, err := strconv.Atoi(c.Param("tournamentID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid tournament id")
+	}
+	ctx := c.Request().Context()
+
+	tournament, err := h.q.GetTournamentByID(ctx, int32(tournamentID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	displayName := c.FormValue("display_name")
+
+	// Parse seed → user assignments
+	type seedEntry struct {
+		seed   int
+		userID int
+	}
+	var seedEntries []seedEntry
+	for seed := 1; seed <= int(tournament.BracketSize); seed++ {
+		raw := c.FormValue("seed_" + strconv.Itoa(seed))
+		if raw == "" || raw == "0" {
+			continue
+		}
+		userID, err := strconv.Atoi(raw)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid seed_"+strconv.Itoa(seed))
+		}
+		seedEntries = append(seedEntries, seedEntry{seed: seed, userID: userID})
+	}
+
+	// Parse match → game assignments
+	matchRows, err := h.q.ListTournamentMatches(ctx, int32(tournamentID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	type matchGame struct {
+		matchID int
+		gameID  *int32
+	}
+	var matchGames []matchGame
+	for _, m := range matchRows {
+		raw := c.FormValue("match_" + strconv.Itoa(int(m.TournamentMatchID)))
+		var gameID *int32
+		if raw != "" && raw != "0" {
+			gid, err := strconv.Atoi(raw)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "Invalid match game")
+			}
+			gid32 := int32(gid)
+			gameID = &gid32
+		}
+		matchGames = append(matchGames, matchGame{matchID: int(m.TournamentMatchID), gameID: gameID})
+	}
+
+	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.UpdateTournament(ctx, db.UpdateTournamentParams{
+			TournamentID: int32(tournamentID),
+			DisplayName:  displayName,
+			BracketSize:  tournament.BracketSize,
+			NumRounds:    tournament.NumRounds,
+		}); err != nil {
+			return err
+		}
+
+		// Replace entries
+		if err := qtx.DeleteTournamentEntries(ctx, int32(tournamentID)); err != nil {
+			return err
+		}
+		for _, se := range seedEntries {
+			if err := qtx.CreateTournamentEntry(ctx, db.CreateTournamentEntryParams{
+				TournamentID: int32(tournamentID),
+				UserID:       int32(se.userID),
+				Seed:         int32(se.seed),
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Update match game assignments
+		for _, mg := range matchGames {
+			if err := qtx.UpdateTournamentMatchGame(ctx, db.UpdateTournamentMatchGameParams{
+				TournamentMatchID: int32(mg.matchID),
+				GameID:            mg.gameID,
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/tournaments")
 }

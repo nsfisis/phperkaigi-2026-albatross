@@ -1,0 +1,22 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a> | <a href="{{ .BasePath }}admin/tournaments">Tournaments</a>
+{{ end }}
+
+{{ define "content" }}
+<form method="post">
+  <div>
+    <label>Display Name</label>
+    <input type="text" name="display_name" required>
+  </div>
+  <div>
+    <label>Number of Participants</label>
+    <input type="number" name="num_participants" min="2" max="64" value="4" required>
+    <small>Bracket size will be rounded up to next power of 2.</small>
+  </div>
+  <div>
+    <button type="submit">Create</button>
+  </div>
+</form>
+{{ end }}

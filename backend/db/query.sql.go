@@ -186,6 +186,57 @@ func (q *Queries) CreateTestcaseResult(ctx context.Context, arg CreateTestcaseRe
 	return err
 }
 
+const createTournament = `-- name: CreateTournament :one
+INSERT INTO tournaments (display_name, bracket_size, num_rounds)
+VALUES ($1, $2, $3)
+RETURNING tournament_id
+`
+
+type CreateTournamentParams struct {
+	DisplayName string
+	BracketSize int32
+	NumRounds   int32
+}
+
+func (q *Queries) CreateTournament(ctx context.Context, arg CreateTournamentParams) (int32, error) {
+	row := q.db.QueryRow(ctx, createTournament, arg.DisplayName, arg.BracketSize, arg.NumRounds)
+	var tournament_id int32
+	err := row.Scan(&tournament_id)
+	return tournament_id, err
+}
+
+const createTournamentEntry = `-- name: CreateTournamentEntry :exec
+INSERT INTO tournament_entries (tournament_id, user_id, seed)
+VALUES ($1, $2, $3)
+`
+
+type CreateTournamentEntryParams struct {
+	TournamentID int32
+	UserID       int32
+	Seed         int32
+}
+
+func (q *Queries) CreateTournamentEntry(ctx context.Context, arg CreateTournamentEntryParams) error {
+	_, err := q.db.Exec(ctx, createTournamentEntry, arg.TournamentID, arg.UserID, arg.Seed)
+	return err
+}
+
+const createTournamentMatch = `-- name: CreateTournamentMatch :exec
+INSERT INTO tournament_matches (tournament_id, round, position)
+VALUES ($1, $2, $3)
+`
+
+type CreateTournamentMatchParams struct {
+	TournamentID int32
+	Round        int32
+	Position     int32
+}
+
+func (q *Queries) CreateTournamentMatch(ctx context.Context, arg CreateTournamentMatchParams) error {
+	_, err := q.db.Exec(ctx, createTournamentMatch, arg.TournamentID, arg.Round, arg.Position)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, display_name, is_admin)
 VALUES ($1, $1, false)
@@ -239,6 +290,26 @@ WHERE testcase_id = $1
 
 func (q *Queries) DeleteTestcase(ctx context.Context, testcaseID int32) error {
 	_, err := q.db.Exec(ctx, deleteTestcase, testcaseID)
+	return err
+}
+
+const deleteTournamentEntries = `-- name: DeleteTournamentEntries :exec
+DELETE FROM tournament_entries
+WHERE tournament_id = $1
+`
+
+func (q *Queries) DeleteTournamentEntries(ctx context.Context, tournamentID int32) error {
+	_, err := q.db.Exec(ctx, deleteTournamentEntries, tournamentID)
+	return err
+}
+
+const deleteTournamentMatches = `-- name: DeleteTournamentMatches :exec
+DELETE FROM tournament_matches
+WHERE tournament_id = $1
+`
+
+func (q *Queries) DeleteTournamentMatches(ctx context.Context, tournamentID int32) error {
+	_, err := q.db.Exec(ctx, deleteTournamentMatches, tournamentID)
 	return err
 }
 
@@ -641,6 +712,25 @@ func (q *Queries) GetTestcaseResultsBySubmissionID(ctx context.Context, submissi
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTournamentByID = `-- name: GetTournamentByID :one
+SELECT tournament_id, display_name, bracket_size, num_rounds, created_at FROM tournaments
+WHERE tournament_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetTournamentByID(ctx context.Context, tournamentID int32) (Tournament, error) {
+	row := q.db.QueryRow(ctx, getTournamentByID, tournamentID)
+	var i Tournament
+	err := row.Scan(
+		&i.TournamentID,
+		&i.DisplayName,
+		&i.BracketSize,
+		&i.NumRounds,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getUserAuthByUsername = `-- name: GetUserAuthByUsername :one
@@ -1054,6 +1144,123 @@ func (q *Queries) ListTestcasesByProblemID(ctx context.Context, problemID int32)
 	return items, nil
 }
 
+const listTournamentEntries = `-- name: ListTournamentEntries :many
+SELECT tournament_entries.tournament_entry_id, tournament_entries.tournament_id, tournament_entries.user_id, tournament_entries.seed, users.user_id, users.username, users.display_name, users.icon_path, users.is_admin, users.label, users.created_at
+FROM tournament_entries
+JOIN users ON tournament_entries.user_id = users.user_id
+WHERE tournament_entries.tournament_id = $1
+ORDER BY tournament_entries.seed
+`
+
+type ListTournamentEntriesRow struct {
+	TournamentEntryID int32
+	TournamentID      int32
+	UserID            int32
+	Seed              int32
+	UserID_2          int32
+	Username          string
+	DisplayName       string
+	IconPath          *string
+	IsAdmin           bool
+	Label             *string
+	CreatedAt         pgtype.Timestamp
+}
+
+func (q *Queries) ListTournamentEntries(ctx context.Context, tournamentID int32) ([]ListTournamentEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listTournamentEntries, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTournamentEntriesRow
+	for rows.Next() {
+		var i ListTournamentEntriesRow
+		if err := rows.Scan(
+			&i.TournamentEntryID,
+			&i.TournamentID,
+			&i.UserID,
+			&i.Seed,
+			&i.UserID_2,
+			&i.Username,
+			&i.DisplayName,
+			&i.IconPath,
+			&i.IsAdmin,
+			&i.Label,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTournamentMatches = `-- name: ListTournamentMatches :many
+SELECT tournament_match_id, tournament_id, round, position, game_id FROM tournament_matches
+WHERE tournament_id = $1
+ORDER BY round, position
+`
+
+func (q *Queries) ListTournamentMatches(ctx context.Context, tournamentID int32) ([]TournamentMatch, error) {
+	rows, err := q.db.Query(ctx, listTournamentMatches, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TournamentMatch
+	for rows.Next() {
+		var i TournamentMatch
+		if err := rows.Scan(
+			&i.TournamentMatchID,
+			&i.TournamentID,
+			&i.Round,
+			&i.Position,
+			&i.GameID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTournaments = `-- name: ListTournaments :many
+SELECT tournament_id, display_name, bracket_size, num_rounds, created_at FROM tournaments
+ORDER BY tournament_id
+`
+
+func (q *Queries) ListTournaments(ctx context.Context) ([]Tournament, error) {
+	rows, err := q.db.Query(ctx, listTournaments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tournament
+	for rows.Next() {
+		var i Tournament
+		if err := rows.Scan(
+			&i.TournamentID,
+			&i.DisplayName,
+			&i.BracketSize,
+			&i.NumRounds,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT user_id, username, display_name, icon_path, is_admin, label, created_at FROM users
 ORDER BY users.user_id
@@ -1302,6 +1509,45 @@ func (q *Queries) UpdateTestcase(ctx context.Context, arg UpdateTestcaseParams) 
 		arg.Stdin,
 		arg.Stdout,
 	)
+	return err
+}
+
+const updateTournament = `-- name: UpdateTournament :exec
+UPDATE tournaments
+SET display_name = $2, bracket_size = $3, num_rounds = $4
+WHERE tournament_id = $1
+`
+
+type UpdateTournamentParams struct {
+	TournamentID int32
+	DisplayName  string
+	BracketSize  int32
+	NumRounds    int32
+}
+
+func (q *Queries) UpdateTournament(ctx context.Context, arg UpdateTournamentParams) error {
+	_, err := q.db.Exec(ctx, updateTournament,
+		arg.TournamentID,
+		arg.DisplayName,
+		arg.BracketSize,
+		arg.NumRounds,
+	)
+	return err
+}
+
+const updateTournamentMatchGame = `-- name: UpdateTournamentMatchGame :exec
+UPDATE tournament_matches
+SET game_id = $2
+WHERE tournament_match_id = $1
+`
+
+type UpdateTournamentMatchGameParams struct {
+	TournamentMatchID int32
+	GameID            *int32
+}
+
+func (q *Queries) UpdateTournamentMatchGame(ctx context.Context, arg UpdateTournamentMatchGameParams) error {
+	_, err := q.db.Exec(ctx, updateTournamentMatchGame, arg.TournamentMatchID, arg.GameID)
 	return err
 }
 

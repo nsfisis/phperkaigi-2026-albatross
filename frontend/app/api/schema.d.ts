@@ -164,7 +164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tournament": {
+    "/tournaments/{tournament_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -223,15 +223,28 @@ export interface components {
             code: string | null;
         };
         Tournament: {
+            tournament_id: number;
+            display_name: string;
+            bracket_size: number;
+            num_rounds: number;
+            entries: components["schemas"]["TournamentEntry"][];
             matches: components["schemas"]["TournamentMatch"][];
         };
+        TournamentEntry: {
+            user: components["schemas"]["User"];
+            seed: number;
+        };
         TournamentMatch: {
-            game_id: number;
+            tournament_match_id: number;
+            round: number;
+            position: number;
+            game_id?: number;
             player1?: components["schemas"]["User"];
             player2?: components["schemas"]["User"];
             player1_score?: number;
             player2_score?: number;
-            winner?: number;
+            winner_user_id?: number;
+            is_bye: boolean;
         };
         User: {
             user_id: number;
@@ -700,15 +713,11 @@ export interface operations {
     };
     getTournament: {
         parameters: {
-            query: {
-                game1: number;
-                game2: number;
-                game3: number;
-                game4: number;
-                game5: number;
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                tournament_id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;

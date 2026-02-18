@@ -347,40 +347,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /tournament:
+  /tournaments/{tournament_id}:
     get:
       operationId: getTournament
       parameters:
-        - name: game1
-          in: query
+        - name: tournament_id
+          in: path
           required: true
           schema:
             type: integer
-          explode: false
-        - name: game2
-          in: query
-          required: true
-          schema:
-            type: integer
-          explode: false
-        - name: game3
-          in: query
-          required: true
-          schema:
-            type: integer
-          explode: false
-        - name: game4
-          in: query
-          required: true
-          schema:
-            type: integer
-          explode: false
-        - name: game5
-          in: query
-          required: true
-          schema:
-            type: integer
-          explode: false
       responses:
         '200':
           description: The request has succeeded.
@@ -530,17 +505,53 @@ components:
     Tournament:
       type: object
       required:
+        - tournament_id
+        - display_name
+        - bracket_size
+        - num_rounds
+        - entries
         - matches
       properties:
+        tournament_id:
+          type: integer
+        display_name:
+          type: string
+        bracket_size:
+          type: integer
+        num_rounds:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentEntry'
         matches:
           type: array
           items:
             $ref: '#/components/schemas/TournamentMatch'
+    TournamentEntry:
+      type: object
+      required:
+        - user
+        - seed
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        seed:
+          type: integer
     TournamentMatch:
       type: object
       required:
-        - game_id
+        - tournament_match_id
+        - round
+        - position
+        - is_bye
       properties:
+        tournament_match_id:
+          type: integer
+        round:
+          type: integer
+        position:
+          type: integer
         game_id:
           type: integer
         player1:
@@ -551,8 +562,10 @@ components:
           type: integer
         player2_score:
           type: integer
-        winner:
+        winner_user_id:
           type: integer
+        is_bye:
+          type: boolean
     User:
       type: object
       required:

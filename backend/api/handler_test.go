@@ -16,14 +16,17 @@ import (
 // mockQuerier implements db.Querier for testing.
 type mockQuerier struct {
 	db.Querier
-	getGameByIDFunc     func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
-	listMainPlayersFunc func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
-	listPublicGamesFunc func(ctx context.Context) ([]db.ListPublicGamesRow, error)
-	deleteSessionFunc   func(ctx context.Context, sessionID string) error
-	getLatestStateFunc  func(ctx context.Context, arg db.GetLatestStateParams) (db.GetLatestStateRow, error)
-	updateCodeFunc      func(ctx context.Context, arg db.UpdateCodeParams) error
-	getRankingFunc      func(ctx context.Context, gameID int32) ([]db.GetRankingRow, error)
-	getLatestStatesFunc func(ctx context.Context, gameID int32) ([]db.GetLatestStatesOfMainPlayersRow, error)
+	getGameByIDFunc           func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
+	listMainPlayersFunc       func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
+	listPublicGamesFunc       func(ctx context.Context) ([]db.ListPublicGamesRow, error)
+	deleteSessionFunc         func(ctx context.Context, sessionID string) error
+	getLatestStateFunc        func(ctx context.Context, arg db.GetLatestStateParams) (db.GetLatestStateRow, error)
+	updateCodeFunc            func(ctx context.Context, arg db.UpdateCodeParams) error
+	getRankingFunc            func(ctx context.Context, gameID int32) ([]db.GetRankingRow, error)
+	getLatestStatesFunc       func(ctx context.Context, gameID int32) ([]db.GetLatestStatesOfMainPlayersRow, error)
+	getTournamentByIDFunc     func(ctx context.Context, tournamentID int32) (db.Tournament, error)
+	listTournamentEntriesFunc func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
+	listTournamentMatchesFunc func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
 }
 
 func (m *mockQuerier) GetGameByID(ctx context.Context, gameID int32) (db.GetGameByIDRow, error) {
@@ -78,6 +81,27 @@ func (m *mockQuerier) GetRanking(ctx context.Context, gameID int32) ([]db.GetRan
 func (m *mockQuerier) GetLatestStatesOfMainPlayers(ctx context.Context, gameID int32) ([]db.GetLatestStatesOfMainPlayersRow, error) {
 	if m.getLatestStatesFunc != nil {
 		return m.getLatestStatesFunc(ctx, gameID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetTournamentByID(ctx context.Context, tournamentID int32) (db.Tournament, error) {
+	if m.getTournamentByIDFunc != nil {
+		return m.getTournamentByIDFunc(ctx, tournamentID)
+	}
+	return db.Tournament{}, pgx.ErrNoRows
+}
+
+func (m *mockQuerier) ListTournamentEntries(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error) {
+	if m.listTournamentEntriesFunc != nil {
+		return m.listTournamentEntriesFunc(ctx, tournamentID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) ListTournamentMatches(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error) {
+	if m.listTournamentMatchesFunc != nil {
+		return m.listTournamentMatchesFunc(ctx, tournamentID)
 	}
 	return nil, nil
 }
@@ -724,4 +748,301 @@ func TestToNullableWith(t *testing.T) {
 			t.Errorf("expected 'hello', got %q", v)
 		}
 	})
+}
+
+// --- Tournament tests ---
+
+func TestStandardBracketSeeds(t *testing.T) {
+	tests := []struct {
+		name        string
+		bracketSize int
+		expected    []int
+	}{
+		{
+			name:        "bracket_size=2",
+			bracketSize: 2,
+			expected:    []int{1, 2},
+		},
+		{
+			name:        "bracket_size=4",
+			bracketSize: 4,
+			expected:    []int{1, 4, 2, 3},
+		},
+		{
+			name:        "bracket_size=8",
+			bracketSize: 8,
+			expected:    []int{1, 8, 4, 5, 2, 7, 3, 6},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := standardBracketSeeds(tt.bracketSize)
+			if len(got) != len(tt.expected) {
+				t.Fatalf("expected length %d, got %d", len(tt.expected), len(got))
+			}
+			for i, v := range tt.expected {
+				if got[i] != v {
+					t.Errorf("position %d: expected seed %d, got %d", i, v, got[i])
+				}
+			}
+		})
+	}
+}
+
+func TestStandardBracketSeeds_Seed1And2OppositeSides(t *testing.T) {
+	seeds := standardBracketSeeds(8)
+	// Seed 1 should be in the first half, Seed 2 in the second half
+	seed1Pos := -1
+	seed2Pos := -1
+	for i, s := range seeds {
+		if s == 1 {
+			seed1Pos = i
+		}
+		if s == 2 {
+			seed2Pos = i
+		}
+	}
+	if seed1Pos >= 4 {
+		t.Errorf("Seed 1 should be in first half, but at position %d", seed1Pos)
+	}
+	if seed2Pos < 4 {
+		t.Errorf("Seed 2 should be in second half, but at position %d", seed2Pos)
+	}
+}
+
+func TestStandardBracketSeeds_AllSeedsPresent(t *testing.T) {
+	for _, size := range []int{2, 4, 8, 16} {
+		seeds := standardBracketSeeds(size)
+		seen := make(map[int]bool)
+		for _, s := range seeds {
+			if s < 1 || s > size {
+				t.Errorf("bracket_size=%d: seed %d out of range", size, s)
+			}
+			if seen[s] {
+				t.Errorf("bracket_size=%d: duplicate seed %d", size, s)
+			}
+			seen[s] = true
+		}
+		if len(seen) != size {
+			t.Errorf("bracket_size=%d: expected %d unique seeds, got %d", size, size, len(seen))
+		}
+	}
+}
+
+func TestFindSeedByUserID(t *testing.T) {
+	entries := []TournamentEntry{
+		{User: User{UserID: 10}, Seed: 1},
+		{User: User{UserID: 20}, Seed: 2},
+		{User: User{UserID: 30}, Seed: 3},
+	}
+
+	if got := findSeedByUserID(entries, 10); got != 1 {
+		t.Errorf("expected seed 1 for user 10, got %d", got)
+	}
+	if got := findSeedByUserID(entries, 20); got != 2 {
+		t.Errorf("expected seed 2 for user 20, got %d", got)
+	}
+	if got := findSeedByUserID(entries, 999); got != 0 {
+		t.Errorf("expected seed 0 for unknown user, got %d", got)
+	}
+}
+
+func TestGetTournament_NotFound(t *testing.T) {
+	h := Handler{
+		q:    &mockQuerier{},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 999}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := resp.(GetTournament404JSONResponse); !ok {
+		t.Errorf("expected 404 response, got %T", resp)
+	}
+}
+
+func TestGetTournament_Success_NoEntries(t *testing.T) {
+	h := Handler{
+		q: &mockQuerier{
+			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+				return db.Tournament{
+					TournamentID: 1,
+					DisplayName:  "Test Tournament",
+					BracketSize:  4,
+					NumRounds:    2,
+				}, nil
+			},
+		},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	okResp, ok := resp.(GetTournament200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200 response, got %T", resp)
+	}
+	if okResp.Tournament.TournamentID != 1 {
+		t.Errorf("expected tournament ID 1, got %d", okResp.Tournament.TournamentID)
+	}
+	if okResp.Tournament.DisplayName != "Test Tournament" {
+		t.Errorf("expected display name 'Test Tournament', got %q", okResp.Tournament.DisplayName)
+	}
+	if okResp.Tournament.BracketSize != 4 {
+		t.Errorf("expected bracket size 4, got %d", okResp.Tournament.BracketSize)
+	}
+	if len(okResp.Tournament.Entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(okResp.Tournament.Entries))
+	}
+}
+
+func TestGetTournament_WithEntriesAndMatches(t *testing.T) {
+	gameID := int32(10)
+	h := Handler{
+		q: &mockQuerier{
+			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+				return db.Tournament{
+					TournamentID: 1,
+					DisplayName:  "Test",
+					BracketSize:  4,
+					NumRounds:    2,
+				}, nil
+			},
+			listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
+				return []db.ListTournamentEntriesRow{
+					{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice", IsAdmin: false},
+					{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob", IsAdmin: false},
+					{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol", IsAdmin: false},
+				}, nil
+			},
+			listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
+				return []db.TournamentMatch{
+					{TournamentMatchID: 1, TournamentID: 1, Round: 0, Position: 0, GameID: &gameID},
+					{TournamentMatchID: 2, TournamentID: 1, Round: 0, Position: 1, GameID: nil},
+					{TournamentMatchID: 3, TournamentID: 1, Round: 1, Position: 0, GameID: nil},
+				}, nil
+			},
+			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+				return db.GetGameByIDRow{
+					GameID:    10,
+					StartedAt: pgtype.Timestamp{Valid: false},
+				}, nil
+			},
+		},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	okResp, ok := resp.(GetTournament200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200 response, got %T", resp)
+	}
+
+	// Check entries
+	if len(okResp.Tournament.Entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(okResp.Tournament.Entries))
+	}
+
+	// Check matches: bracket_size=4, num_rounds=2 → round 0: 2 matches, round 1: 1 match
+	if len(okResp.Tournament.Matches) != 3 {
+		t.Fatalf("expected 3 matches, got %d", len(okResp.Tournament.Matches))
+	}
+
+	// Round 0, Position 0: Seed 1 (Alice) vs Seed 4 (bye)
+	m0 := okResp.Tournament.Matches[0]
+	if m0.Round != 0 || m0.Position != 0 {
+		t.Errorf("match 0: expected round=0, pos=0, got round=%d, pos=%d", m0.Round, m0.Position)
+	}
+	if m0.Player1 == nil || m0.Player1.Username != "alice" {
+		t.Errorf("match 0 player1: expected alice")
+	}
+	if m0.Player2 != nil {
+		t.Errorf("match 0 player2: expected nil (bye), got %v", m0.Player2)
+	}
+	if !m0.IsBye {
+		t.Error("match 0: expected is_bye=true")
+	}
+	if m0.WinnerUserID == nil || *m0.WinnerUserID != 100 {
+		t.Error("match 0: expected winner to be Alice (user_id=100)")
+	}
+
+	// Round 0, Position 1: Seed 2 (Bob) vs Seed 3 (Carol)
+	m1 := okResp.Tournament.Matches[1]
+	if m1.Round != 0 || m1.Position != 1 {
+		t.Errorf("match 1: expected round=0, pos=1, got round=%d, pos=%d", m1.Round, m1.Position)
+	}
+	if m1.Player1 == nil || m1.Player1.Username != "bob" {
+		t.Errorf("match 1 player1: expected bob, got %v", m1.Player1)
+	}
+	if m1.Player2 == nil || m1.Player2.Username != "carol" {
+		t.Errorf("match 1 player2: expected carol, got %v", m1.Player2)
+	}
+	if m1.IsBye {
+		t.Error("match 1: expected is_bye=false")
+	}
+}
+
+func TestGetTournament_ByeAutoWinner(t *testing.T) {
+	// 3 players in bracket_size=4: seed 4 is empty → round 0, pos 0 is a bye
+	// The bye winner should propagate to round 1
+	h := Handler{
+		q: &mockQuerier{
+			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+				return db.Tournament{
+					TournamentID: 1,
+					DisplayName:  "Bye Test",
+					BracketSize:  4,
+					NumRounds:    2,
+				}, nil
+			},
+			listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
+				return []db.ListTournamentEntriesRow{
+					{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice"},
+					{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob"},
+					{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol"},
+				}, nil
+			},
+			listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
+				return []db.TournamentMatch{
+					{TournamentMatchID: 1, Round: 0, Position: 0},
+					{TournamentMatchID: 2, Round: 0, Position: 1},
+					{TournamentMatchID: 3, Round: 1, Position: 0},
+				}, nil
+			},
+		},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	okResp := resp.(GetTournament200JSONResponse)
+
+	// Round 1, Position 0 (final): player1 should be Alice (bye winner from round 0 pos 0)
+	final := okResp.Tournament.Matches[2]
+	if final.Round != 1 || final.Position != 0 {
+		t.Fatalf("expected final at round=1, pos=0")
+	}
+	if final.Player1 == nil || final.Player1.UserID != 100 {
+		t.Error("final player1: expected Alice (bye winner)")
+	}
 }

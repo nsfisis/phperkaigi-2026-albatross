@@ -44,3 +44,25 @@ VALUES
     (5, '', '42'),
     (6, '', '42'),
     (7, '', '42');
+
+-- Tournament: 3 participants, bracket_size=4, num_rounds=2
+INSERT INTO tournaments
+(display_name, bracket_size, num_rounds)
+VALUES
+    ('TEST Tournament', 4, 2);
+
+-- Entries: 3 players with seeds 1-3 (seed 4 = bye)
+INSERT INTO tournament_entries
+(tournament_id, user_id, seed)
+VALUES
+    (1, 1, 1),
+    (1, 2, 2),
+    (1, 3, 3);
+
+-- Matches: Round 0 has 2 matches, Round 1 has 1 match (final)
+INSERT INTO tournament_matches
+(tournament_id, round, position, game_id)
+VALUES
+    (1, 0, 0, 1),
+    (1, 0, 1, 2),
+    (1, 1, 0, 3);

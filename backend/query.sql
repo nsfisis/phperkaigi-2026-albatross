@@ -290,3 +290,55 @@ DELETE FROM sessions WHERE session_id = $1;
 
 -- name: DeleteExpiredSessions :exec
 DELETE FROM sessions WHERE expires_at < NOW();
+
+-- name: GetTournamentByID :one
+SELECT * FROM tournaments
+WHERE tournament_id = $1
+LIMIT 1;
+
+-- name: ListTournaments :many
+SELECT * FROM tournaments
+ORDER BY tournament_id;
+
+-- name: CreateTournament :one
+INSERT INTO tournaments (display_name, bracket_size, num_rounds)
+VALUES ($1, $2, $3)
+RETURNING tournament_id;
+
+-- name: UpdateTournament :exec
+UPDATE tournaments
+SET display_name = $2, bracket_size = $3, num_rounds = $4
+WHERE tournament_id = $1;
+
+-- name: ListTournamentEntries :many
+SELECT tournament_entries.*, users.*
+FROM tournament_entries
+JOIN users ON tournament_entries.user_id = users.user_id
+WHERE tournament_entries.tournament_id = $1
+ORDER BY tournament_entries.seed;
+
+-- name: CreateTournamentEntry :exec
+INSERT INTO tournament_entries (tournament_id, user_id, seed)
+VALUES ($1, $2, $3);
+
+-- name: DeleteTournamentEntries :exec
+DELETE FROM tournament_entries
+WHERE tournament_id = $1;
+
+-- name: ListTournamentMatches :many
+SELECT * FROM tournament_matches
+WHERE tournament_id = $1
+ORDER BY round, position;
+
+-- name: CreateTournamentMatch :exec
+INSERT INTO tournament_matches (tournament_id, round, position)
+VALUES ($1, $2, $3);
+
+-- name: DeleteTournamentMatches :exec
+DELETE FROM tournament_matches
+WHERE tournament_id = $1;
+
+-- name: UpdateTournamentMatchGame :exec
+UPDATE tournament_matches
+SET game_id = $2
+WHERE tournament_match_id = $1;

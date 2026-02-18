@@ -6,20 +6,40 @@ import UserIcon from "../components/UserIcon";
 import { APP_NAME } from "../config";
 import { usePageTitle } from "../hooks/usePageTitle";
 
+type Tournament = components["schemas"]["Tournament"];
 type TournamentMatch = components["schemas"]["TournamentMatch"];
-type User = components["schemas"]["User"];
+type TournamentEntry = components["schemas"]["TournamentEntry"];
 
-function Player({ player, rank }: { player: User | null; rank: number }) {
+function getBorderColor(match: TournamentMatch, userID?: number): string {
+	if (!match.winner_user_id) {
+		return "border-black";
+	}
+	if (userID !== undefined && match.winner_user_id === userID) {
+		return "border-pink-700";
+	}
+	return "border-gray-400";
+}
+
+function PlayerCard({ entry }: { entry: TournamentEntry | undefined }) {
+	if (!entry) {
+		return (
+			<div className="flex flex-col items-center gap-1 p-2 opacity-30">
+				<span className="text-gray-400 text-sm">BYE</span>
+			</div>
+		);
+	}
 	return (
 		<BorderedContainer>
-			<div className="flex flex-col items-center gap-2">
-				<span className="text-gray-800 text-md">予選 {rank} 位</span>
-				<span className="font-medium text-lg">{player?.display_name}</span>
-				{player?.icon_path && (
+			<div className="flex flex-col items-center gap-1">
+				<span className="text-gray-600 text-xs">Seed {entry.seed}</span>
+				<span className="font-medium text-sm truncate max-w-full">
+					{entry.user.display_name}
+				</span>
+				{entry.user.icon_path && (
 					<UserIcon
-						iconPath={player.icon_path}
-						displayName={player.display_name}
-						className="w-16 h-16 my-auto"
+						iconPath={entry.user.icon_path}
+						displayName={entry.user.display_name}
+						className="w-12 h-12"
 					/>
 				)}
 			</div>
@@ -27,245 +47,243 @@ function Player({ player, rank }: { player: User | null; rank: number }) {
 	);
 }
 
-function BranchVL({ className = "" }: { className?: string }) {
-	return (
-		<div className="grid grid-cols-2">
-			<div></div>
-			<div className={`border-l-4 ${className}`}></div>
-		</div>
-	);
-}
-
-function BranchVR({ className = "" }: { className?: string }) {
-	return (
-		<div className="grid grid-cols-2">
-			<div className={`border-r-4 ${className}`}></div>
-			<div></div>
-		</div>
-	);
-}
-
-function BranchVL2({
-	score,
-	className = "",
-}: {
-	score: number | null;
-	className?: string;
-}) {
-	return (
-		<div className="grid grid-cols-3">
-			<div className={`border-r-4 ${className}`}></div>
-			<div className={`border-t-4 p-2 font-bold text-xl ${className}`}>
-				{score}
+function MatchCell({ match }: { match: TournamentMatch }) {
+	if (match.is_bye) {
+		return (
+			<div className="flex items-center justify-center h-full opacity-30">
+				<span className="text-gray-400 text-xs">BYE</span>
 			</div>
-			<div className={`border-t-4 ${className}`}></div>
-		</div>
-	);
-}
-
-function BranchVR2({
-	score,
-	className = "",
-}: {
-	score: number | null;
-	className?: string;
-}) {
-	return (
-		<div className="grid grid-cols-3">
-			<div className={`border-t-4 ${className}`}></div>
-			<div className={`border-t-4 p-2 font-bold text-xl ${className}`}>
-				{score}
-			</div>
-			<div className={`border-l-4 ${className}`}></div>
-		</div>
-	);
-}
-
-function BranchV3({ className = "" }: { className?: string }) {
-	return <div className={`border-r-4 ${className}`}></div>;
-}
-
-function BranchH({
-	score,
-	className1,
-	className2,
-	className3,
-}: {
-	score?: number | null;
-	className1: string;
-	className2: string;
-	className3: string;
-}) {
-	return (
-		<div className="grid grid-cols-3">
-			<div className={`border-t-4 ${className1}`}></div>
-			<div className={`border-t-4 ${className2}`}></div>
-			<div className={`border-t-4 p-2 font-bold text-xl ${className3}`}>
-				{score}
-			</div>
-		</div>
-	);
-}
-
-function BranchH2({
-	score,
-	className1,
-	className2,
-	className3,
-}: {
-	score?: number | null;
-	className1: string;
-	className2: string;
-	className3: string;
-}) {
-	return (
-		<div className="grid grid-cols-3">
-			<div
-				className={`border-t-4 p-2 font-bold text-xl text-right ${className1}`}
-			>
-				{score}
-			</div>
-			<div className={`border-t-4 ${className2}`}></div>
-			<div className={`border-t-4 ${className3}`}></div>
-		</div>
-	);
-}
-
-function BranchL({
-	score,
-	className = "",
-}: {
-	score: number | null;
-	className?: string;
-}) {
-	return (
-		<div className="grid grid-cols-2">
-			<div></div>
-			<div
-				className={`border-l-4 border-t-4 p-2 font-bold text-xl ${className}`}
-			>
-				{score}
-			</div>
-		</div>
-	);
-}
-
-function BranchR({
-	score,
-	className = "",
-}: {
-	score: number | null;
-	className?: string;
-}) {
-	return (
-		<div className="grid grid-cols-2">
-			<div
-				className={`border-r-4 border-t-4 p-2 font-bold text-xl text-right ${className}`}
-			>
-				{score}
-			</div>
-			<div></div>
-		</div>
-	);
-}
-
-function BranchL2({ className = "" }: { className?: string }) {
-	return (
-		<div className="grid grid-cols-2">
-			<div className={`border-l-4 ${className}`}></div>
-			<div></div>
-		</div>
-	);
-}
-
-function BranchR2({ className = "" }: { className?: string }) {
-	return (
-		<div className="grid grid-cols-2">
-			<div></div>
-			<div className={`border-r-4 ${className}`}></div>
-		</div>
-	);
-}
-
-function getPlayer(match: TournamentMatch, playerID: number): User | null {
-	if (match.player1?.user_id === playerID) return match.player1;
-	if (match.player2?.user_id === playerID) return match.player2;
-	return null;
-}
-
-function getScore(match: TournamentMatch, playerIDs: number[]): number | null {
-	if (match.player1 && playerIDs.includes(match.player1.user_id))
-		return match.player1_score ?? null;
-	if (match.player2 && playerIDs.includes(match.player2.user_id))
-		return match.player2_score ?? null;
-	return null;
-}
-
-function getBorderColor(match: TournamentMatch, playerIDs: number[]): string {
-	if (!match.winner) {
-		return "border-black";
+		);
 	}
-	if (playerIDs.includes(match.winner)) {
-		return "border-pink-700";
-	}
-	return "border-gray-400";
+
+	const p1Color = match.winner_user_id
+		? match.winner_user_id === match.player1?.user_id
+			? "border-pink-700"
+			: "border-gray-400"
+		: "border-black";
+	const p2Color = match.winner_user_id
+		? match.winner_user_id === match.player2?.user_id
+			? "border-pink-700"
+			: "border-gray-400"
+		: "border-black";
+
+	return (
+		<div className="flex flex-col gap-1 p-1">
+			<div
+				className={`border-2 ${p1Color} rounded px-2 py-1 text-xs flex justify-between`}
+			>
+				<span className="truncate">{match.player1?.display_name ?? "?"}</span>
+				{match.player1_score !== undefined && (
+					<span className="font-bold ml-1">{match.player1_score}</span>
+				)}
+			</div>
+			<div
+				className={`border-2 ${p2Color} rounded px-2 py-1 text-xs flex justify-between`}
+			>
+				<span className="truncate">{match.player2?.display_name ?? "?"}</span>
+				{match.player2_score !== undefined && (
+					<span className="font-bold ml-1">{match.player2_score}</span>
+				)}
+			</div>
+		</div>
+	);
 }
 
-export default function TournamentPage() {
+function Connector({
+	position,
+	colSpan,
+	match,
+}: {
+	position: number;
+	colSpan: number;
+	match: TournamentMatch | undefined;
+}) {
+	const leftHalf = colSpan / 2;
+	const rightHalf = colSpan - leftHalf;
+
+	const leftColor = match
+		? getBorderColor(match, match.player1?.user_id)
+		: "border-black";
+	const rightColor = match
+		? getBorderColor(match, match.player2?.user_id)
+		: "border-black";
+
+	return (
+		<div
+			className="grid h-8"
+			style={{
+				gridColumn: `${position * colSpan + 1} / span ${colSpan}`,
+			}}
+		>
+			<div
+				className="grid"
+				style={{
+					gridTemplateColumns: `repeat(${colSpan}, 1fr)`,
+				}}
+			>
+				<div
+					className={`border-t-4 border-r-2 ${leftColor}`}
+					style={{ gridColumn: `1 / span ${leftHalf}` }}
+				/>
+				<div
+					className={`border-t-4 border-l-2 ${rightColor}`}
+					style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
+				/>
+			</div>
+		</div>
+	);
+}
+
+function TournamentBracket({ tournament }: { tournament: Tournament }) {
+	const { bracket_size, num_rounds, entries, matches } = tournament;
+
+	const matchByKey = new Map<string, TournamentMatch>();
+	for (const m of matches) {
+		matchByKey.set(`${m.round}-${m.position}`, m);
+	}
+
+	const entryBySeed = new Map<number, TournamentEntry>();
+	for (const e of entries) {
+		entryBySeed.set(e.seed, e);
+	}
+
+	const bracketSeeds = standardBracketSeeds(bracket_size);
+
+	// Build rows top-to-bottom: final → ... → round 0 → players
+	const rows: React.ReactNode[] = [];
+
+	// Rounds from top (final) to bottom (round 0)
+	for (let round = num_rounds - 1; round >= 0; round--) {
+		const numPositions = bracket_size / (1 << (round + 1));
+		const colSpan = bracket_size / numPositions;
+
+		// Match cells for this round
+		const matchCells: React.ReactNode[] = [];
+		for (let pos = 0; pos < numPositions; pos++) {
+			const match = matchByKey.get(`${round}-${pos}`);
+			matchCells.push(
+				<div
+					key={`match-${round}-${pos}`}
+					style={{
+						gridColumn: `${pos * colSpan + 1} / span ${colSpan}`,
+					}}
+				>
+					{match ? <MatchCell match={match} /> : null}
+				</div>,
+			);
+		}
+		rows.push(
+			<div
+				key={`round-${round}`}
+				className="grid"
+				style={{
+					gridTemplateColumns: `repeat(${bracket_size}, 1fr)`,
+				}}
+			>
+				{matchCells}
+			</div>,
+		);
+
+		// Connectors below this round's matches
+		const connectors: React.ReactNode[] = [];
+		for (let pos = 0; pos < numPositions; pos++) {
+			const match = matchByKey.get(`${round}-${pos}`);
+			connectors.push(
+				<Connector
+					key={`conn-${round}-${pos}`}
+					position={pos}
+					colSpan={colSpan}
+					match={match}
+				/>,
+			);
+		}
+		rows.push(
+			<div
+				key={`conn-row-${round}`}
+				className="grid"
+				style={{
+					gridTemplateColumns: `repeat(${bracket_size}, 1fr)`,
+				}}
+			>
+				{connectors}
+			</div>,
+		);
+	}
+
+	// Player cards row (bottom)
+	const playerCards: React.ReactNode[] = [];
+	for (let slot = 0; slot < bracket_size; slot++) {
+		const seed = bracketSeeds[slot]!;
+		const entry = entryBySeed.get(seed);
+		playerCards.push(
+			<div
+				key={`player-${slot}`}
+				style={{ gridColumn: `${slot + 1} / span 1` }}
+			>
+				<PlayerCard entry={entry} />
+			</div>,
+		);
+	}
+	rows.push(
+		<div
+			key="players"
+			className="grid gap-1"
+			style={{ gridTemplateColumns: `repeat(${bracket_size}, 1fr)` }}
+		>
+			{playerCards}
+		</div>,
+	);
+
+	return <div className="flex flex-col gap-0">{rows}</div>;
+}
+
+// Exported for testing as standardBracketSeedsForTest
+export { standardBracketSeeds as standardBracketSeedsForTest };
+
+function standardBracketSeeds(bracketSize: number): number[] {
+	const seeds = new Array<number>(bracketSize).fill(0);
+	seeds[0] = 1;
+	for (let size = 2; size <= bracketSize; size *= 2) {
+		const temp = new Array<number>(size).fill(0);
+		for (let i = 0; i < size / 2; i++) {
+			temp[i * 2] = seeds[i]!;
+			temp[i * 2 + 1] = size + 1 - seeds[i]!;
+		}
+		for (let i = 0; i < size; i++) {
+			seeds[i] = temp[i]!;
+		}
+	}
+	return seeds;
+}
+
+export default function TournamentPage({
+	tournamentId,
+}: {
+	tournamentId: string;
+}) {
 	usePageTitle(`Tournament | ${APP_NAME}`);
 
-	const params = new URLSearchParams(window.location.search);
-	const game1 = Number(params.get("game1"));
-	const game2 = Number(params.get("game2"));
-	const game3 = Number(params.get("game3"));
-	const game4 = Number(params.get("game4"));
-	const game5 = Number(params.get("game5"));
-	const gamesValid = game1 && game2 && game3 && game4 && game5;
+	const id = Number(tournamentId);
+	const isValidId = id > 0;
 
-	const pIDs = [
-		Number(params.get("player1")),
-		Number(params.get("player2")),
-		Number(params.get("player3")),
-		Number(params.get("player4")),
-		Number(params.get("player5")),
-		Number(params.get("player6")),
-	];
-	const playersValid = pIDs.every((id) => id);
-
-	const paramsValid = gamesValid && playersValid;
-	const paramsError = !gamesValid
-		? "Missing or invalid game parameters"
-		: !playersValid
-			? "Missing or invalid player parameters"
-			: null;
-
-	const [tournament, setTournament] = useState<{
-		matches: TournamentMatch[];
-	} | null>(null);
-	const playerIDs = paramsValid ? pIDs : [];
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const [tournament, setTournament] = useState<Tournament | null>(null);
+	const [loading, setLoading] = useState(isValidId);
+	const [error, setError] = useState<string | null>(
+		isValidId ? null : "Invalid tournament ID",
+	);
 
 	useEffect(() => {
-		if (!paramsValid) {
+		if (!isValidId) {
 			return;
 		}
 
 		const apiClient = createApiClient();
 		apiClient
-			.getTournament(game1, game2, game3, game4, game5)
+			.getTournament(id)
 			.then(({ tournament }) => setTournament(tournament))
 			.catch(() => setError("Failed to load tournament"))
 			.finally(() => setLoading(false));
-	}, [paramsValid, game1, game2, game3, game4, game5]);
-
-	if (paramsError) {
-		return (
-			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
-				<p className="text-red-500">{paramsError}</p>
-			</div>
-		);
-	}
+	}, [id, isValidId]);
 
 	if (loading) {
 		return (
@@ -283,162 +301,13 @@ export default function TournamentPage() {
 		);
 	}
 
-	const match1 = tournament.matches[0]!;
-	const match2 = tournament.matches[1]!;
-	const match3 = tournament.matches[2]!;
-	const match4 = tournament.matches[3]!;
-	const match5 = tournament.matches[4]!;
-
-	const playerID1 = playerIDs[0]!;
-	const playerID2 = playerIDs[1]!;
-	const playerID3 = playerIDs[2]!;
-	const playerID4 = playerIDs[3]!;
-	const playerID5 = playerIDs[4]!;
-	const playerID6 = playerIDs[5]!;
-
-	const player5 = getPlayer(match1, playerID5);
-	const player4 = getPlayer(match1, playerID4);
-	const player3 = getPlayer(match2, playerID3);
-	const player6 = getPlayer(match2, playerID6);
-	const player1 = getPlayer(match3, playerID1);
-	const player2 = getPlayer(match4, playerID2);
-
 	return (
 		<div className="p-6 bg-gray-100 min-h-screen">
-			<div className="max-w-5xl mx-auto">
+			<div className="max-w-6xl mx-auto">
 				<h1 className="text-3xl font-bold text-transparent bg-clip-text bg-phperkaigi text-center mb-8">
-					PHPerKaigi 2026 PHP Code Battle
+					{tournament.display_name}
 				</h1>
-
-				<div className="grid grid-rows-5">
-					<div className="grid grid-cols-6">
-						<div></div>
-						<div></div>
-						<BranchV3
-							className={getBorderColor(match5, [
-								playerID1,
-								playerID5,
-								playerID4,
-								playerID3,
-								playerID6,
-								playerID2,
-							])}
-						/>
-						<div></div>
-						<div></div>
-						<div></div>
-					</div>
-					<div className="grid grid-cols-6">
-						<div></div>
-						<BranchVL2
-							score={getScore(match5, [playerID1, playerID5, playerID4])}
-							className={getBorderColor(match5, [
-								playerID1,
-								playerID5,
-								playerID4,
-							])}
-						/>
-						<BranchH
-							className1={getBorderColor(match5, [
-								playerID1,
-								playerID5,
-								playerID4,
-							])}
-							className2={getBorderColor(match5, [
-								playerID1,
-								playerID5,
-								playerID4,
-							])}
-							className3={getBorderColor(match5, [
-								playerID1,
-								playerID5,
-								playerID4,
-							])}
-						/>
-						<BranchH
-							className1={getBorderColor(match5, [
-								playerID3,
-								playerID6,
-								playerID2,
-							])}
-							className2={getBorderColor(match5, [
-								playerID3,
-								playerID6,
-								playerID2,
-							])}
-							className3={getBorderColor(match5, [
-								playerID3,
-								playerID6,
-								playerID2,
-							])}
-						/>
-						<BranchVR2
-							score={getScore(match5, [playerID3, playerID6, playerID2])}
-							className={getBorderColor(match5, [
-								playerID3,
-								playerID6,
-								playerID2,
-							])}
-						/>
-						<div></div>
-					</div>
-					<div className="grid grid-cols-6">
-						<BranchL
-							score={getScore(match3, [playerID1])}
-							className={getBorderColor(match3, [playerID1])}
-						/>
-						<BranchH
-							score={getScore(match3, [playerID5, playerID4])}
-							className1={getBorderColor(match3, [playerID1])}
-							className2={getBorderColor(match3, [playerID5, playerID4])}
-							className3={getBorderColor(match3, [playerID5, playerID4])}
-						/>
-						<BranchL2
-							className={getBorderColor(match3, [playerID5, playerID4])}
-						/>
-						<BranchR2
-							className={getBorderColor(match4, [playerID3, playerID6])}
-						/>
-						<BranchH2
-							score={getScore(match4, [playerID3, playerID6])}
-							className1={getBorderColor(match4, [playerID3, playerID6])}
-							className2={getBorderColor(match4, [playerID3, playerID6])}
-							className3={getBorderColor(match4, [playerID2])}
-						/>
-						<BranchR
-							score={getScore(match4, [playerID2])}
-							className={getBorderColor(match4, [playerID2])}
-						/>
-					</div>
-					<div className="grid grid-cols-6">
-						<BranchVL className={getBorderColor(match3, [playerID1])} />
-						<BranchL
-							score={getScore(match1, [playerID5])}
-							className={getBorderColor(match1, [playerID5])}
-						/>
-						<BranchR
-							score={getScore(match1, [playerID4])}
-							className={getBorderColor(match1, [playerID4])}
-						/>
-						<BranchL
-							score={getScore(match2, [playerID3])}
-							className={getBorderColor(match2, [playerID3])}
-						/>
-						<BranchR
-							score={getScore(match2, [playerID6])}
-							className={getBorderColor(match2, [playerID6])}
-						/>
-						<BranchVR className={getBorderColor(match4, [playerID2])} />
-					</div>
-					<div className="grid grid-cols-6 gap-6">
-						<Player player={player1} rank={1} />
-						<Player player={player5} rank={5} />
-						<Player player={player4} rank={4} />
-						<Player player={player3} rank={3} />
-						<Player player={player6} rank={6} />
-						<Player player={player2} rank={2} />
-					</div>
-				</div>
+				<TournamentBracket tournament={tournament} />
 			</div>
 		</div>
 	);

@@ -17,11 +17,16 @@ type Querier interface {
 	CreateSubmission(ctx context.Context, arg CreateSubmissionParams) (int32, error)
 	CreateTestcase(ctx context.Context, arg CreateTestcaseParams) (int32, error)
 	CreateTestcaseResult(ctx context.Context, arg CreateTestcaseResultParams) error
+	CreateTournament(ctx context.Context, arg CreateTournamentParams) (int32, error)
+	CreateTournamentEntry(ctx context.Context, arg CreateTournamentEntryParams) error
+	CreateTournamentMatch(ctx context.Context, arg CreateTournamentMatchParams) error
 	CreateUser(ctx context.Context, username string) (int32, error)
 	CreateUserAuth(ctx context.Context, arg CreateUserAuthParams) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteSession(ctx context.Context, sessionID string) error
 	DeleteTestcase(ctx context.Context, testcaseID int32) error
+	DeleteTournamentEntries(ctx context.Context, tournamentID int32) error
+	DeleteTournamentMatches(ctx context.Context, tournamentID int32) error
 	GetGameByID(ctx context.Context, gameID int32) (GetGameByIDRow, error)
 	GetLatestState(ctx context.Context, arg GetLatestStateParams) (GetLatestStateRow, error)
 	GetLatestStatesOfMainPlayers(ctx context.Context, gameID int32) ([]GetLatestStatesOfMainPlayersRow, error)
@@ -32,6 +37,7 @@ type Querier interface {
 	GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]Submission, error)
 	GetTestcaseByID(ctx context.Context, testcaseID int32) (Testcase, error)
 	GetTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) ([]TestcaseResult, error)
+	GetTournamentByID(ctx context.Context, tournamentID int32) (Tournament, error)
 	GetUserAuthByUsername(ctx context.Context, username string) (GetUserAuthByUsernameRow, error)
 	GetUserByID(ctx context.Context, userID int32) (User, error)
 	GetUserBySession(ctx context.Context, sessionID string) (User, error)
@@ -45,6 +51,9 @@ type Querier interface {
 	ListTestcases(ctx context.Context) ([]Testcase, error)
 	ListTestcasesByGameID(ctx context.Context, gameID int32) ([]Testcase, error)
 	ListTestcasesByProblemID(ctx context.Context, problemID int32) ([]Testcase, error)
+	ListTournamentEntries(ctx context.Context, tournamentID int32) ([]ListTournamentEntriesRow, error)
+	ListTournamentMatches(ctx context.Context, tournamentID int32) ([]TournamentMatch, error)
+	ListTournaments(ctx context.Context) ([]Tournament, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	RemoveAllMainPlayers(ctx context.Context, gameID int32) error
 	SyncGameStateBestScoreSubmission(ctx context.Context, arg SyncGameStateBestScoreSubmissionParams) error
@@ -56,6 +65,8 @@ type Querier interface {
 	UpdateProblem(ctx context.Context, arg UpdateProblemParams) error
 	UpdateSubmissionStatus(ctx context.Context, arg UpdateSubmissionStatusParams) error
 	UpdateTestcase(ctx context.Context, arg UpdateTestcaseParams) error
+	UpdateTournament(ctx context.Context, arg UpdateTournamentParams) error
+	UpdateTournamentMatchGame(ctx context.Context, arg UpdateTournamentMatchGameParams) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateUserIconPath(ctx context.Context, arg UpdateUserIconPathParams) error
 }

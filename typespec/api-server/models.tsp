@@ -106,14 +106,28 @@ model RankingEntry {
 }
 
 model Tournament {
+  tournament_id: integer;
+  display_name: string;
+  bracket_size: integer;
+  num_rounds: integer;
+  entries: TournamentEntry[];
   matches: TournamentMatch[];
 }
 
+model TournamentEntry {
+  user: User;
+  seed: integer;
+}
+
 model TournamentMatch {
-  game_id: integer;
+  tournament_match_id: integer;
+  round: integer;
+  position: integer;
+  game_id?: integer;
   player1?: User;
   player2?: User;
   player1_score?: integer;
   player2_score?: integer;
-  winner?: integer;
+  winner_user_id?: integer;
+  is_bye: boolean;
 }

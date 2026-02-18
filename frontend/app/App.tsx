@@ -42,10 +42,12 @@ export default function App() {
 						</ProtectedRoute>
 					)}
 				</Route>
-				<Route path="/tournament">
-					<ProtectedRoute>
-						<TournamentPage />
-					</ProtectedRoute>
+				<Route path="/tournament/:tournamentId">
+					{(params) => (
+						<ProtectedRoute>
+							<TournamentPage tournamentId={params.tournamentId} />
+						</ProtectedRoute>
+					)}
 				</Route>
 				<Route>
 					<div className="min-h-screen bg-gray-100 flex items-center justify-center">
