@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/hibiken/asynq v0.26.0
+	github.com/hibiken/asynqmon v0.7.2
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/oapi-codegen/echo-middleware v1.0.2

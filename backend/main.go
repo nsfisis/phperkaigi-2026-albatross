@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/hibiken/asynq"
+	"github.com/hibiken/asynqmon"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -110,6 +112,13 @@ func main() {
 	adminGroup := e.Group(conf.BasePath + "admin")
 	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)
+
+	queueMonitor := asynqmon.New(asynqmon.Options{
+		RootPath:     conf.BasePath + "admin/queue",
+		RedisConnOpt: asynq.RedisClientOpt{Addr: "task-db:6379"},
+	})
+	adminGroup.Any("/queue/*", echo.WrapHandler(queueMonitor))
+	adminGroup.Any("/queue", echo.WrapHandler(queueMonitor))
 
 	if conf.IsLocal {
 		filesGroup := e.Group(conf.BasePath + "files")
