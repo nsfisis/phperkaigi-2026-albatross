@@ -31,6 +31,7 @@ type Querier interface {
 	GetGameByID(ctx context.Context, gameID int32) (GetGameByIDRow, error)
 	GetLatestState(ctx context.Context, arg GetLatestStateParams) (GetLatestStateRow, error)
 	GetLatestStatesOfMainPlayers(ctx context.Context, gameID int32) ([]GetLatestStatesOfMainPlayersRow, error)
+	GetLatestSubmissionsByGameID(ctx context.Context, gameID int32) ([]Submission, error)
 	GetProblemByID(ctx context.Context, problemID int32) (Problem, error)
 	GetQualifyingRanking(ctx context.Context, arg GetQualifyingRankingParams) ([]GetQualifyingRankingRow, error)
 	GetRanking(ctx context.Context, gameID int32) ([]GetRankingRow, error)

@@ -265,6 +265,12 @@ FROM submissions
 WHERE game_id = $1
 ORDER BY created_at DESC;
 
+-- name: GetLatestSubmissionsByGameID :many
+SELECT DISTINCT ON (user_id) *
+FROM submissions
+WHERE game_id = $1
+ORDER BY user_id, created_at DESC;
+
 -- name: GetSubmissionByID :one
 SELECT *
 FROM submissions

@@ -72,6 +72,8 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.POST("/games/:gameID", h.postGameEdit)
 	g.POST("/games/:gameID/start", h.postGameStart)
 	g.GET("/games/:gameID/submissions", h.getSubmissions)
+	g.POST("/games/:gameID/submissions/rejudge-latest", h.postSubmissionsRejudgeLatest)
+	g.POST("/games/:gameID/submissions/rejudge-all", h.postSubmissionsRejudgeAll)
 	g.GET("/games/:gameID/submissions/:submissionID", h.getSubmissionDetail)
 	g.POST("/games/:gameID/submissions/:submissionID/rejudge", h.postSubmissionRejudge)
 
@@ -671,6 +673,22 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 	})
 }
 
+func (h *Handler) rejudgeSubmission(ctx context.Context, submission db.Submission, language string) error {
+	err := h.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.DeleteTestcaseResultsBySubmissionID(ctx, submission.SubmissionID); err != nil {
+			return err
+		}
+		return qtx.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
+			SubmissionID: submission.SubmissionID,
+			Status:       "running",
+		})
+	})
+	if err != nil {
+		return err
+	}
+	return h.hub.EnqueueTestTasks(ctx, int(submission.SubmissionID), int(submission.GameID), int(submission.UserID), language, submission.Code)
+}
+
 func (h *Handler) postSubmissionRejudge(c echo.Context) error {
 	gameID, err := strconv.Atoi(c.Param("gameID"))
 	if err != nil {
@@ -700,25 +718,71 @@ func (h *Handler) postSubmissionRejudge(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		if err := qtx.DeleteTestcaseResultsBySubmissionID(ctx, int32(submissionID)); err != nil {
-			return err
-		}
-		return qtx.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
-			SubmissionID: int32(submissionID),
-			Status:       "running",
-		})
-	})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	err = h.hub.EnqueueTestTasks(ctx, submissionID, gameID, int(submission.UserID), game.Language, submission.Code)
-	if err != nil {
+	if err := h.rejudgeSubmission(ctx, submission, game.Language); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions/%d", h.conf.BasePath, gameID, submissionID))
+}
+
+func (h *Handler) postSubmissionsRejudgeLatest(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+	}
+
+	ctx := c.Request().Context()
+
+	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	submissions, err := h.q.GetLatestSubmissionsByGameID(ctx, int32(gameID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	for _, s := range submissions {
+		if err := h.rejudgeSubmission(ctx, s, game.Language); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions", h.conf.BasePath, gameID))
+}
+
+func (h *Handler) postSubmissionsRejudgeAll(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+	}
+
+	ctx := c.Request().Context()
+
+	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	submissions, err := h.q.GetSubmissionsByGameID(ctx, int32(gameID))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	for _, s := range submissions {
+		if err := h.rejudgeSubmission(ctx, s, game.Language); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions", h.conf.BasePath, gameID))
 }
 
 func (h *Handler) getProblems(c echo.Context) error {

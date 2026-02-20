@@ -8,6 +8,12 @@
 
 {{ define "content" }}
 <h2>Submissions for Game {{ .GameID }}</h2>
+<form method="POST" action="{{ .BasePath }}admin/games/{{ .GameID }}/submissions/rejudge-latest" style="display:inline">
+  <button type="submit">Rejudge Latest</button>
+</form>
+<form method="POST" action="{{ .BasePath }}admin/games/{{ .GameID }}/submissions/rejudge-all" style="display:inline">
+  <button type="submit">Rejudge All</button>
+</form>
 <table>
   <thead>
     <tr>

@@ -472,6 +472,41 @@ func (q *Queries) GetLatestStatesOfMainPlayers(ctx context.Context, gameID int32
 	return items, nil
 }
 
+const getLatestSubmissionsByGameID = `-- name: GetLatestSubmissionsByGameID :many
+SELECT DISTINCT ON (user_id) submission_id, game_id, user_id, code, code_size, status, created_at
+FROM submissions
+WHERE game_id = $1
+ORDER BY user_id, created_at DESC
+`
+
+func (q *Queries) GetLatestSubmissionsByGameID(ctx context.Context, gameID int32) ([]Submission, error) {
+	rows, err := q.db.Query(ctx, getLatestSubmissionsByGameID, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Submission
+	for rows.Next() {
+		var i Submission
+		if err := rows.Scan(
+			&i.SubmissionID,
+			&i.GameID,
+			&i.UserID,
+			&i.Code,
+			&i.CodeSize,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getProblemByID = `-- name: GetProblemByID :one
 SELECT problem_id, title, description, language, sample_code FROM problems
 WHERE problem_id = $1

@@ -41,6 +41,7 @@ type mockQuerier struct {
 	listMainPlayersFunc                     func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
 	listSubmissionIDsFunc                   func(ctx context.Context) ([]int32, error)
 	getSubmissionsByGameIDFunc              func(ctx context.Context, gameID int32) ([]db.Submission, error)
+	getLatestSubmissionsByGameIDFunc        func(ctx context.Context, gameID int32) ([]db.Submission, error)
 	getSubmissionByIDFunc                   func(ctx context.Context, submissionID int32) (db.Submission, error)
 	getTestcaseResultsBySubmIDFunc          func(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error)
 	updateSubmissionStatusFunc              func(ctx context.Context, arg db.UpdateSubmissionStatusParams) error
@@ -180,6 +181,13 @@ func (m *mockQuerier) ListSubmissionIDs(ctx context.Context) ([]int32, error) {
 func (m *mockQuerier) GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]db.Submission, error) {
 	if m.getSubmissionsByGameIDFunc != nil {
 		return m.getSubmissionsByGameIDFunc(ctx, gameID)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) GetLatestSubmissionsByGameID(ctx context.Context, gameID int32) ([]db.Submission, error) {
+	if m.getLatestSubmissionsByGameIDFunc != nil {
+		return m.getLatestSubmissionsByGameIDFunc(ctx, gameID)
 	}
 	return nil, nil
 }
@@ -1490,6 +1498,125 @@ func TestPostSubmissionRejudge_SubmissionNotFound(t *testing.T) {
 	err := h.postSubmissionRejudge(c)
 	if err == nil {
 		t.Fatal("expected error for non-existent submission")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+func TestPostSubmissionsRejudgeLatest_Success(t *testing.T) {
+	var enqueuedIDs []int
+
+	q := &mockQuerier{
+		getGameByIDFunc: func(_ context.Context, gameID int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{GameID: gameID, ProblemID: 1, Language: "php"}, nil
+		},
+		getLatestSubmissionsByGameIDFunc: func(_ context.Context, _ int32) ([]db.Submission, error) {
+			return []db.Submission{
+				{SubmissionID: 10, GameID: 1, UserID: 1, Code: "<?php echo 1;", CreatedAt: pgtype.Timestamp{Valid: true}},
+				{SubmissionID: 20, GameID: 1, UserID: 2, Code: "<?php echo 2;", CreatedAt: pgtype.Timestamp{Valid: true}},
+			}, nil
+		},
+	}
+
+	hub := &mockGameHub{
+		enqueueTestTasksFunc: func(_ context.Context, submissionID, _, _ int, _, _ string) error {
+			enqueuedIDs = append(enqueuedIDs, submissionID)
+			return nil
+		},
+	}
+
+	txm := &mockTxManager{
+		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
+			return fn(&mockQuerier{})
+		},
+	}
+
+	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+
+	c, rec := newEchoContextWithForm("/admin/games/1/submissions/rejudge-latest", map[string]string{
+		"gameID": "1",
+	}, url.Values{})
+
+	err := h.postSubmissionsRejudgeLatest(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if len(enqueuedIDs) != 2 {
+		t.Fatalf("enqueued count = %d, want 2", len(enqueuedIDs))
+	}
+	if enqueuedIDs[0] != 10 || enqueuedIDs[1] != 20 {
+		t.Errorf("enqueued IDs = %v, want [10, 20]", enqueuedIDs)
+	}
+}
+
+func TestPostSubmissionsRejudgeAll_Success(t *testing.T) {
+	var enqueuedIDs []int
+
+	q := &mockQuerier{
+		getGameByIDFunc: func(_ context.Context, gameID int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{GameID: gameID, ProblemID: 1, Language: "php"}, nil
+		},
+		getSubmissionsByGameIDFunc: func(_ context.Context, _ int32) ([]db.Submission, error) {
+			return []db.Submission{
+				{SubmissionID: 10, GameID: 1, UserID: 1, Code: "<?php echo 1;", CreatedAt: pgtype.Timestamp{Valid: true}},
+				{SubmissionID: 11, GameID: 1, UserID: 1, Code: "<?php echo 11;", CreatedAt: pgtype.Timestamp{Valid: true}},
+				{SubmissionID: 20, GameID: 1, UserID: 2, Code: "<?php echo 2;", CreatedAt: pgtype.Timestamp{Valid: true}},
+			}, nil
+		},
+	}
+
+	hub := &mockGameHub{
+		enqueueTestTasksFunc: func(_ context.Context, submissionID, _, _ int, _, _ string) error {
+			enqueuedIDs = append(enqueuedIDs, submissionID)
+			return nil
+		},
+	}
+
+	txm := &mockTxManager{
+		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
+			return fn(&mockQuerier{})
+		},
+	}
+
+	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+
+	c, rec := newEchoContextWithForm("/admin/games/1/submissions/rejudge-all", map[string]string{
+		"gameID": "1",
+	}, url.Values{})
+
+	err := h.postSubmissionsRejudgeAll(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if len(enqueuedIDs) != 3 {
+		t.Fatalf("enqueued count = %d, want 3", len(enqueuedIDs))
+	}
+	if enqueuedIDs[0] != 10 || enqueuedIDs[1] != 11 || enqueuedIDs[2] != 20 {
+		t.Errorf("enqueued IDs = %v, want [10, 11, 20]", enqueuedIDs)
+	}
+}
+
+func TestPostSubmissionsRejudgeAll_GameNotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContextWithForm("/admin/games/999/submissions/rejudge-all", map[string]string{
+		"gameID": "999",
+	}, url.Values{})
+
+	err := h.postSubmissionsRejudgeAll(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent game")
 	}
 	httpErr, ok := err.(*echo.HTTPError)
 	if !ok {
