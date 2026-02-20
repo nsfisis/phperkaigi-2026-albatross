@@ -4,6 +4,7 @@ import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import { BASE_PATH } from "./config";
 import DashboardPage from "./pages/DashboardPage";
 import GolfPlayPage from "./pages/GolfPlayPage";
+import GolfProblemPreviewPage from "./pages/GolfProblemPreviewPage";
 import GolfWatchPage from "./pages/GolfWatchPage";
 import IndexPage from "./pages/IndexPage";
 import LoginPage from "./pages/LoginPage";
@@ -28,6 +29,13 @@ export default function App() {
 					<ProtectedRoute>
 						<DashboardPage />
 					</ProtectedRoute>
+				</Route>
+				<Route path="/golf/:gameId/preview">
+					{(params) => (
+						<ProtectedRoute>
+							<GolfProblemPreviewPage gameId={params.gameId} />
+						</ProtectedRoute>
+					)}
 				</Route>
 				<Route path="/golf/:gameId/play">
 					{(params) => (

@@ -68,6 +68,11 @@ export default function DashboardPage() {
 										</span>
 									</div>
 									<div className="flex gap-2">
+										{game.started_at == null && (
+											<NavigateLink to={`/golf/${game.game_id}/preview`}>
+												問題を見る
+											</NavigateLink>
+										)}
 										<NavigateLink to={`/golf/${game.game_id}/play`}>
 											対戦
 										</NavigateLink>
