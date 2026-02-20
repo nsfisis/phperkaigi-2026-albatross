@@ -51,9 +51,11 @@ func (r postLoginCookieResponse) VisitPostLoginResponse(w http.ResponseWriter) e
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
 	username := request.Body.Username
 	password := request.Body.Password
+	ip := GetClientIPFromContext(ctx)
+
 	userID, err := h.auth.Login(ctx, username, password)
 	if err != nil {
-		slog.Error("login failed", "error", err)
+		slog.Warn("login failed", "username", username, "ip", ip, "reason", err.Error())
 		var msg string
 		if errors.Is(err, auth.ErrForteeLoginTimeout) {
 			msg = "ログインに失敗しました"
@@ -86,6 +88,8 @@ func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject)
 	}); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	slog.Info("login succeeded", "username", username, "user_id", dbUser.UserID, "ip", ip)
 
 	return postLoginCookieResponse{
 		cookie: http.Cookie{

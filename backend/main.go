@@ -99,6 +99,7 @@ func main() {
 	loginRL := ratelimit.NewIPRateLimiter(rate.Every(time.Minute/5), 5)
 
 	apiGroup := e.Group(conf.BasePath + "api")
+	apiGroup.Use(api.ClientIPMiddleware())
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
 	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))

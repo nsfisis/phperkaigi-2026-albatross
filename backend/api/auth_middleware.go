@@ -47,3 +47,24 @@ func GetUserFromContext(ctx context.Context) (*db.User, bool) {
 func SetUserInContext(ctx context.Context, user *db.User) context.Context {
 	return context.WithValue(ctx, userContextKey{}, user)
 }
+
+type clientIPContextKey struct{}
+
+// ClientIPMiddleware extracts the client IP from echo.Context.RealIP()
+// and stores it in the request's context.Context so that handlers
+// receiving only context.Context (via generated code) can access it.
+func ClientIPMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			ip := c.RealIP()
+			ctx := context.WithValue(c.Request().Context(), clientIPContextKey{}, ip)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
+	}
+}
+
+func GetClientIPFromContext(ctx context.Context) string {
+	ip, _ := ctx.Value(clientIPContextKey{}).(string)
+	return ip
+}
