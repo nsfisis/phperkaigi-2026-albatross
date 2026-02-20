@@ -16,17 +16,18 @@ import (
 // mockQuerier implements db.Querier for testing.
 type mockQuerier struct {
 	db.Querier
-	getGameByIDFunc           func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
-	listMainPlayersFunc       func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
-	listPublicGamesFunc       func(ctx context.Context) ([]db.ListPublicGamesRow, error)
-	deleteSessionFunc         func(ctx context.Context, sessionID string) error
-	getLatestStateFunc        func(ctx context.Context, arg db.GetLatestStateParams) (db.GetLatestStateRow, error)
-	updateCodeFunc            func(ctx context.Context, arg db.UpdateCodeParams) error
-	getRankingFunc            func(ctx context.Context, gameID int32) ([]db.GetRankingRow, error)
-	getLatestStatesFunc       func(ctx context.Context, gameID int32) ([]db.GetLatestStatesOfMainPlayersRow, error)
-	getTournamentByIDFunc     func(ctx context.Context, tournamentID int32) (db.Tournament, error)
-	listTournamentEntriesFunc func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
-	listTournamentMatchesFunc func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
+	getGameByIDFunc                     func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
+	listMainPlayersFunc                 func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
+	listPublicGamesFunc                 func(ctx context.Context) ([]db.ListPublicGamesRow, error)
+	deleteSessionFunc                   func(ctx context.Context, sessionID string) error
+	getLatestStateFunc                  func(ctx context.Context, arg db.GetLatestStateParams) (db.GetLatestStateRow, error)
+	updateCodeFunc                      func(ctx context.Context, arg db.UpdateCodeParams) error
+	getRankingFunc                      func(ctx context.Context, gameID int32) ([]db.GetRankingRow, error)
+	getLatestStatesFunc                 func(ctx context.Context, gameID int32) ([]db.GetLatestStatesOfMainPlayersRow, error)
+	getTournamentByIDFunc               func(ctx context.Context, tournamentID int32) (db.Tournament, error)
+	listTournamentEntriesFunc           func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
+	listTournamentMatchesFunc           func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
+	getSubmissionsByGameIDAndUserIDFunc func(ctx context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error)
 }
 
 func (m *mockQuerier) GetGameByID(ctx context.Context, gameID int32) (db.GetGameByIDRow, error) {
@@ -85,6 +86,13 @@ func (m *mockQuerier) GetLatestStatesOfMainPlayers(ctx context.Context, gameID i
 	return nil, nil
 }
 
+func (m *mockQuerier) GetSubmissionsByGameIDAndUserID(ctx context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error) {
+	if m.getSubmissionsByGameIDAndUserIDFunc != nil {
+		return m.getSubmissionsByGameIDAndUserIDFunc(ctx, arg)
+	}
+	return nil, nil
+}
+
 func (m *mockQuerier) GetTournamentByID(ctx context.Context, tournamentID int32) (db.Tournament, error) {
 	if m.getTournamentByIDFunc != nil {
 		return m.getTournamentByIDFunc(ctx, tournamentID)
@@ -135,6 +143,142 @@ type mockAuthenticator struct {
 
 func (m *mockAuthenticator) Login(_ context.Context, _, _ string) (int, error) {
 	return m.loginResult, m.loginErr
+}
+
+func TestGetGamePlaySubmissions_GameNotFound(t *testing.T) {
+	h := Handler{
+		q:    &mockQuerier{},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
+		GameID: 999,
+	}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := resp.(GetGamePlaySubmissions404JSONResponse); !ok {
+		t.Errorf("expected 404 response, got %T", resp)
+	}
+}
+
+func TestGetGamePlaySubmissions_Empty(t *testing.T) {
+	h := Handler{
+		q: &mockQuerier{
+			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+				return db.GetGameByIDRow{
+					GameID:   1,
+					Language: "php",
+				}, nil
+			},
+		},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 1}
+	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
+		GameID: 1,
+	}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	okResp, ok := resp.(GetGamePlaySubmissions200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200 response, got %T", resp)
+	}
+	if len(okResp.Submissions) != 0 {
+		t.Errorf("expected 0 submissions, got %d", len(okResp.Submissions))
+	}
+}
+
+func TestGetGamePlaySubmissions_WithSubmissions(t *testing.T) {
+	now := time.Now()
+	h := Handler{
+		q: &mockQuerier{
+			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+				return db.GetGameByIDRow{
+					GameID:   1,
+					Language: "php",
+				}, nil
+			},
+			getSubmissionsByGameIDAndUserIDFunc: func(_ context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error) {
+				if arg.GameID != 1 || arg.UserID != 42 {
+					t.Errorf("unexpected query params: game_id=%d, user_id=%d", arg.GameID, arg.UserID)
+				}
+				return []db.Submission{
+					{
+						SubmissionID: 10,
+						GameID:       1,
+						UserID:       42,
+						Code:         "<?php echo 1;",
+						CodeSize:     14,
+						Status:       "success",
+						CreatedAt:    pgtype.Timestamp{Time: now, Valid: true},
+					},
+					{
+						SubmissionID: 9,
+						GameID:       1,
+						UserID:       42,
+						Code:         "<?php echo 'hello';",
+						CodeSize:     20,
+						Status:       "wrong_answer",
+						CreatedAt:    pgtype.Timestamp{Time: now.Add(-5 * time.Minute), Valid: true},
+					},
+				}, nil
+			},
+		},
+		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
+		auth: &mockAuthenticator{},
+		conf: &config.Config{},
+	}
+	user := &db.User{UserID: 42}
+	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
+		GameID: 1,
+	}, user)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	okResp, ok := resp.(GetGamePlaySubmissions200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200 response, got %T", resp)
+	}
+	if len(okResp.Submissions) != 2 {
+		t.Fatalf("expected 2 submissions, got %d", len(okResp.Submissions))
+	}
+
+	s0 := okResp.Submissions[0]
+	if s0.SubmissionID != 10 {
+		t.Errorf("expected submission_id 10, got %d", s0.SubmissionID)
+	}
+	if s0.GameID != 1 {
+		t.Errorf("expected game_id 1, got %d", s0.GameID)
+	}
+	if s0.Code != "<?php echo 1;" {
+		t.Errorf("expected code '<?php echo 1;', got %q", s0.Code)
+	}
+	if s0.CodeSize != 14 {
+		t.Errorf("expected code_size 14, got %d", s0.CodeSize)
+	}
+	if s0.Status != Success {
+		t.Errorf("expected status 'success', got %q", s0.Status)
+	}
+	if s0.CreatedAt != now.Unix() {
+		t.Errorf("expected created_at %d, got %d", now.Unix(), s0.CreatedAt)
+	}
+
+	s1 := okResp.Submissions[1]
+	if s1.SubmissionID != 9 {
+		t.Errorf("expected submission_id 9, got %d", s1.SubmissionID)
+	}
+	if s1.Status != WrongAnswer {
+		t.Errorf("expected status 'wrong_answer', got %q", s1.Status)
+	}
 }
 
 func TestPostGamePlaySubmit_GameNotFound(t *testing.T) {

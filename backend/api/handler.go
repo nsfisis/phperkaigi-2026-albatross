@@ -376,6 +376,44 @@ func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchR
 	}, nil
 }
 
+func (h *Handler) GetGamePlaySubmissions(ctx context.Context, request GetGamePlaySubmissionsRequestObject, user *db.User) (GetGamePlaySubmissionsResponseObject, error) {
+	gameID := request.GameID
+
+	_, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return GetGamePlaySubmissions404JSONResponse{
+				Message: "Game not found",
+			}, nil
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	rows, err := h.q.GetSubmissionsByGameIDAndUserID(ctx, db.GetSubmissionsByGameIDAndUserIDParams{
+		GameID: int32(gameID),
+		UserID: user.UserID,
+	})
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	submissions := make([]Submission, len(rows))
+	for i, row := range rows {
+		submissions[i] = Submission{
+			SubmissionID: int(row.SubmissionID),
+			GameID:       int(row.GameID),
+			Code:         row.Code,
+			CodeSize:     int(row.CodeSize),
+			Status:       ExecutionStatus(row.Status),
+			CreatedAt:    row.CreatedAt.Time.Unix(),
+		}
+	}
+
+	return GetGamePlaySubmissions200JSONResponse{
+		Submissions: submissions,
+	}, nil
+}
+
 func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *db.User) (PostGamePlayCodeResponseObject, error) {
 	gameID := request.GameID
 

@@ -88,6 +88,15 @@ op postGamePlaySubmit(
   @statusCode statusCode: 200;
 } | UnauthorizedError | ForbiddenError | NotFoundError;
 
+@route("/games/{game_id}/play/submissions")
+@get
+@operationId("getGamePlaySubmissions")
+op getGamePlaySubmissions(@path game_id: integer): {
+  @body body: {
+    submissions: Submission[];
+  };
+} | UnauthorizedError | ForbiddenError | NotFoundError;
+
 // ---------- Watch ----------
 
 @route("/games/{game_id}/watch/ranking")

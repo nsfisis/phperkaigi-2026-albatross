@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/games/{game_id}/play/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGamePlaySubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/games/{game_id}/play/submit": {
         parameters: {
             query?: never;
@@ -221,6 +237,14 @@ export interface components {
             score: number;
             submitted_at: number;
             code: string | null;
+        };
+        Submission: {
+            submission_id: number;
+            game_id: number;
+            code: string;
+            code_size: number;
+            status: components["schemas"]["ExecutionStatus"];
+            created_at: number;
         };
         Tournament: {
             tournament_id: number;
@@ -426,6 +450,57 @@ export interface operations {
                 content: {
                     "application/json": {
                         state: components["schemas"]["LatestGameState"];
+                    };
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGamePlaySubmissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        submissions: components["schemas"]["Submission"][];
                     };
                 };
             };

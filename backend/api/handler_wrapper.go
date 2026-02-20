@@ -47,6 +47,16 @@ func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request Get
 	return h.impl.GetGamePlayLatestState(ctx, request, user)
 }
 
+func (h *HandlerWrapper) GetGamePlaySubmissions(ctx context.Context, request GetGamePlaySubmissionsRequestObject) (GetGamePlaySubmissionsResponseObject, error) {
+	user, ok := GetUserFromContext(ctx)
+	if !ok {
+		return GetGamePlaySubmissions401JSONResponse{
+			Message: "Unauthorized",
+		}, nil
+	}
+	return h.impl.GetGamePlaySubmissions(ctx, request, user)
+}
+
 func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error) {
 	user, ok := GetUserFromContext(ctx)
 	if !ok {

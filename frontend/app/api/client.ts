@@ -85,6 +85,19 @@ class AuthenticatedApiClient {
 		return data;
 	}
 
+	async getGamePlaySubmissions(gameId: number) {
+		const { data, error } = await client.GET(
+			"/games/{game_id}/play/submissions",
+			{
+				params: {
+					path: { game_id: gameId },
+				},
+			},
+		);
+		if (error) throw new Error(error.message);
+		return data;
+	}
+
 	async getGameWatchRanking(gameId: number) {
 		const { data, error } = await client.GET("/games/{game_id}/watch/ranking", {
 			params: {

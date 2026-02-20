@@ -74,6 +74,9 @@ export default function DashboardPage() {
 										<NavigateLink to={`/golf/${game.game_id}/watch`}>
 											観戦
 										</NavigateLink>
+										<NavigateLink to={`/golf/${game.game_id}/submissions`}>
+											提出履歴
+										</NavigateLink>
 									</div>
 								</li>
 							))}

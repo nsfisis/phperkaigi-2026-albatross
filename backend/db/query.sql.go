@@ -705,6 +705,45 @@ func (q *Queries) GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]S
 	return items, nil
 }
 
+const getSubmissionsByGameIDAndUserID = `-- name: GetSubmissionsByGameIDAndUserID :many
+SELECT submission_id, game_id, user_id, code, code_size, status, created_at FROM submissions
+WHERE game_id = $1 AND user_id = $2
+ORDER BY created_at DESC
+`
+
+type GetSubmissionsByGameIDAndUserIDParams struct {
+	GameID int32
+	UserID int32
+}
+
+func (q *Queries) GetSubmissionsByGameIDAndUserID(ctx context.Context, arg GetSubmissionsByGameIDAndUserIDParams) ([]Submission, error) {
+	rows, err := q.db.Query(ctx, getSubmissionsByGameIDAndUserID, arg.GameID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Submission
+	for rows.Next() {
+		var i Submission
+		if err := rows.Scan(
+			&i.SubmissionID,
+			&i.GameID,
+			&i.UserID,
+			&i.Code,
+			&i.CodeSize,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTestcaseByID = `-- name: GetTestcaseByID :one
 SELECT testcase_id, problem_id, stdin, stdout FROM testcases
 WHERE testcase_id = $1

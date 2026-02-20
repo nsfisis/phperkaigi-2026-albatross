@@ -259,6 +259,11 @@ WHERE testcase_id = $1;
 DELETE FROM testcases
 WHERE testcase_id = $1;
 
+-- name: GetSubmissionsByGameIDAndUserID :many
+SELECT * FROM submissions
+WHERE game_id = $1 AND user_id = $2
+ORDER BY created_at DESC;
+
 -- name: GetSubmissionsByGameID :many
 SELECT *
 FROM submissions

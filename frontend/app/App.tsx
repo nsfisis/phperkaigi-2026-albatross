@@ -7,6 +7,7 @@ import GolfPlayPage from "./pages/GolfPlayPage";
 import GolfWatchPage from "./pages/GolfWatchPage";
 import IndexPage from "./pages/IndexPage";
 import LoginPage from "./pages/LoginPage";
+import SubmissionsPage from "./pages/SubmissionsPage";
 import TournamentPage from "./pages/TournamentPage";
 
 export default function App() {
@@ -32,6 +33,13 @@ export default function App() {
 					{(params) => (
 						<ProtectedRoute>
 							<GolfPlayPage gameId={params.gameId} />
+						</ProtectedRoute>
+					)}
+				</Route>
+				<Route path="/golf/:gameId/submissions">
+					{(params) => (
+						<ProtectedRoute>
+							<SubmissionsPage gameId={params.gameId} />
 						</ProtectedRoute>
 					)}
 				</Route>

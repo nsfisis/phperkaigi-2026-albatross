@@ -153,6 +153,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /games/{game_id}/play/submissions:
+    get:
+      operationId: getGamePlaySubmissions
+      parameters:
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Submission'
+                required:
+                  - submissions
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /games/{game_id}/play/submit:
     post:
       operationId: postGamePlaySubmit
@@ -502,6 +543,29 @@ components:
         code:
           type: string
           nullable: true
+    Submission:
+      type: object
+      required:
+        - submission_id
+        - game_id
+        - code
+        - code_size
+        - status
+        - created_at
+      properties:
+        submission_id:
+          type: integer
+        game_id:
+          type: integer
+        code:
+          type: string
+        code_size:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+        created_at:
+          type: integer
+          x-go-type: int64
     Tournament:
       type: object
       required:

@@ -119,6 +119,17 @@ model TournamentEntry {
   seed: integer;
 }
 
+model Submission {
+  submission_id: integer;
+  game_id: integer;
+  code: string;
+  code_size: integer;
+  status: ExecutionStatus;
+
+  @extension("x-go-type", "int64")
+  created_at: integer;
+}
+
 model TournamentMatch {
   tournament_match_id: integer;
   round: integer;

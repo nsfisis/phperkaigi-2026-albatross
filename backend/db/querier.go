@@ -37,6 +37,7 @@ type Querier interface {
 	GetRanking(ctx context.Context, gameID int32) ([]GetRankingRow, error)
 	GetSubmissionByID(ctx context.Context, submissionID int32) (Submission, error)
 	GetSubmissionsByGameID(ctx context.Context, gameID int32) ([]Submission, error)
+	GetSubmissionsByGameIDAndUserID(ctx context.Context, arg GetSubmissionsByGameIDAndUserIDParams) ([]Submission, error)
 	GetTestcaseByID(ctx context.Context, testcaseID int32) (Testcase, error)
 	GetTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) ([]TestcaseResult, error)
 	GetTournamentByID(ctx context.Context, tournamentID int32) (Tournament, error)
