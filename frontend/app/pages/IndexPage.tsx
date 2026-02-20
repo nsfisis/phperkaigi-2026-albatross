@@ -31,7 +31,8 @@ export default function IndexPage() {
 					</p>
 				</BorderedContainer>
 			</div>
-			<div>
+			<div className="flex gap-4">
+				<NavigateLink to="/dashboard">観戦する</NavigateLink>
 				<NavigateLink to="/login">ログイン</NavigateLink>
 			</div>
 		</div>

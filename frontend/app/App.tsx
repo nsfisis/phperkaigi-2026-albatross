@@ -26,9 +26,7 @@ export default function App() {
 					</PublicOnlyRoute>
 				</Route>
 				<Route path="/dashboard">
-					<ProtectedRoute>
-						<DashboardPage />
-					</ProtectedRoute>
+					<DashboardPage />
 				</Route>
 				<Route path="/golf/:gameId/preview">
 					{(params) => (
@@ -52,17 +50,11 @@ export default function App() {
 					)}
 				</Route>
 				<Route path="/golf/:gameId/watch">
-					{(params) => (
-						<ProtectedRoute>
-							<GolfWatchPage gameId={params.gameId} />
-						</ProtectedRoute>
-					)}
+					{(params) => <GolfWatchPage gameId={params.gameId} />}
 				</Route>
 				<Route path="/tournament/:tournamentId">
 					{(params) => (
-						<ProtectedRoute>
-							<TournamentPage tournamentId={params.tournamentId} />
-						</ProtectedRoute>
+						<TournamentPage tournamentId={params.tournamentId} />
 					)}
 				</Route>
 				<Route>

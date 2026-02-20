@@ -218,7 +218,7 @@ func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, use
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if !row.IsPublic && !user.IsAdmin {
+	if !row.IsPublic && (user == nil || !user.IsAdmin) {
 		return GetGame404JSONResponse{
 			Message: "Game not found",
 		}, nil
@@ -318,7 +318,7 @@ func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameW
 			Status:               status,
 		}
 
-		if row.UserID == user.UserID && !user.IsAdmin {
+		if user != nil && row.UserID == user.UserID && !user.IsAdmin {
 			return GetGameWatchLatestStates403JSONResponse{
 				Message: "You are one of the main players of this game",
 			}, nil

@@ -14,7 +14,7 @@ type Game = components["schemas"]["Game"];
 export default function DashboardPage() {
 	usePageTitle(`Dashboard | ${APP_NAME}`);
 
-	const { user, logout } = useAuth();
+	const { user, isLoggedIn, isLoading: authLoading, logout } = useAuth();
 	const [, navigate] = useLocation();
 
 	const [games, setGames] = useState<Game[]>([]);
@@ -33,7 +33,7 @@ export default function DashboardPage() {
 		navigate("/");
 	}
 
-	if (loading) {
+	if (loading || authLoading) {
 		return (
 			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
 				<p className="text-gray-500">Loading...</p>
@@ -43,18 +43,24 @@ export default function DashboardPage() {
 
 	return (
 		<div className="p-6 bg-gray-100 min-h-screen flex flex-col items-center gap-4">
-			{user?.icon_path && (
+			{isLoggedIn && user?.icon_path && (
 				<UserIcon
 					iconPath={user.icon_path}
 					displayName={user.display_name}
 					className="w-24 h-24"
 				/>
 			)}
-			<h1 className="text-3xl font-bold text-gray-800">{user?.display_name}</h1>
+			{isLoggedIn ? (
+				<h1 className="text-3xl font-bold text-gray-800">
+					{user?.display_name}
+				</h1>
+			) : (
+				<h1 className="text-3xl font-bold text-gray-800">試合一覧</h1>
+			)}
 			<BorderedContainerWithCaption caption="試合一覧">
 				<div className="px-4">
 					{games.length === 0 ? (
-						<p>エントリーできる試合はありません</p>
+						<p>試合はありません</p>
 					) : (
 						<ul className="divide-y divide-gray-300">
 							{games.map((game) => (
@@ -68,20 +74,24 @@ export default function DashboardPage() {
 										</span>
 									</div>
 									<div className="flex gap-2">
-										{game.started_at == null && (
+										{isLoggedIn && game.started_at == null && (
 											<NavigateLink to={`/golf/${game.game_id}/preview`}>
 												問題を見る
 											</NavigateLink>
 										)}
-										<NavigateLink to={`/golf/${game.game_id}/play`}>
-											対戦
-										</NavigateLink>
+										{isLoggedIn && (
+											<NavigateLink to={`/golf/${game.game_id}/play`}>
+												対戦
+											</NavigateLink>
+										)}
 										<NavigateLink to={`/golf/${game.game_id}/watch`}>
 											観戦
 										</NavigateLink>
-										<NavigateLink to={`/golf/${game.game_id}/submissions`}>
-											提出履歴
-										</NavigateLink>
+										{isLoggedIn && (
+											<NavigateLink to={`/golf/${game.game_id}/submissions`}>
+												提出履歴
+											</NavigateLink>
+										)}
 									</div>
 								</li>
 							))}
@@ -89,14 +99,18 @@ export default function DashboardPage() {
 					)}
 				</div>
 			</BorderedContainerWithCaption>
-			<button
-				type="button"
-				onClick={handleLogout}
-				className="px-4 py-2 bg-red-500 text-white rounded-sm transition duration-300 hover:bg-red-700 focus:ring-3 focus:ring-red-400 focus:outline-hidden"
-			>
-				ログアウト
-			</button>
-			{user?.is_admin && (
+			{isLoggedIn ? (
+				<button
+					type="button"
+					onClick={handleLogout}
+					className="px-4 py-2 bg-red-500 text-white rounded-sm transition duration-300 hover:bg-red-700 focus:ring-3 focus:ring-red-400 focus:outline-hidden"
+				>
+					ログアウト
+				</button>
+			) : (
+				<NavigateLink to="/login">ログイン</NavigateLink>
+			)}
+			{isLoggedIn && user?.is_admin && (
 				<a
 					href={
 						import.meta.env.DEV

@@ -1,6 +1,5 @@
 import { createStore, Provider as JotaiProvider } from "jotai";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { ApiClientContext, createApiClient } from "../api/client";
 import type { components } from "../api/schema";
 import GolfWatchApp from "../components/GolfWatchApp";
@@ -12,14 +11,13 @@ type LatestGameState = components["schemas"]["LatestGameState"];
 type RankingEntry = components["schemas"]["RankingEntry"];
 
 export default function GolfWatchPage({ gameId }: { gameId: string }) {
-	const [, navigate] = useLocation();
-
 	const [game, setGame] = useState<Game | null>(null);
 	const [ranking, setRanking] = useState<RankingEntry[]>([]);
 	const [gameStates, setGameStates] = useState<{
 		[key: string]: LatestGameState;
 	}>({});
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(false);
 
 	const gameIdNum = Number(gameId);
 
@@ -41,19 +39,27 @@ export default function GolfWatchPage({ gameId }: { gameId: string }) {
 				setRanking(ranking);
 				setGameStates(states);
 			})
-			.catch(() => navigate("/dashboard"))
+			.catch(() => setError(true))
 			.finally(() => setLoading(false));
-	}, [gameIdNum, navigate]);
+	}, [gameIdNum]);
 
 	const store = useMemo(() => {
 		if (!game) return null;
 		return createStore();
 	}, [game]);
 
-	if (loading || !game || !store) {
+	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
 				<p className="text-gray-500">Loading...</p>
+			</div>
+		);
+	}
+
+	if (error || !game || !store) {
+		return (
+			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+				<p className="text-red-500">試合が見つかりませんでした</p>
 			</div>
 		);
 	}
