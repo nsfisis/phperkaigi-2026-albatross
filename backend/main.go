@@ -105,7 +105,7 @@ func main() {
 	apiHandler := api.NewHandler(queries, txm, gameHub, authenticator, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
-	adminHandler := admin.NewHandler(queries, txm, conf)
+	adminHandler := admin.NewHandler(queries, txm, gameHub, conf)
 	adminGroup := e.Group(conf.BasePath + "admin")
 	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)

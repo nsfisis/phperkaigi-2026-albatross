@@ -22,38 +22,40 @@ import (
 // mockQuerier implements db.Querier for admin handler testing.
 type mockQuerier struct {
 	db.Querier
-	getUserByIDFunc                func(ctx context.Context, userID int32) (db.User, error)
-	listUsersFunc                  func(ctx context.Context) ([]db.User, error)
-	updateUserFunc                 func(ctx context.Context, arg db.UpdateUserParams) error
-	listAllGamesFunc               func(ctx context.Context) ([]db.Game, error)
-	getGameByIDFunc                func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
-	listProblemsFunc               func(ctx context.Context) ([]db.Problem, error)
-	getProblemByIDFunc             func(ctx context.Context, problemID int32) (db.Problem, error)
-	createGameFunc                 func(ctx context.Context, arg db.CreateGameParams) (int32, error)
-	createProblemFunc              func(ctx context.Context, arg db.CreateProblemParams) (int32, error)
-	updateProblemFunc              func(ctx context.Context, arg db.UpdateProblemParams) error
-	listTestcasesByProblemIDFunc   func(ctx context.Context, problemID int32) ([]db.Testcase, error)
-	getTestcaseByIDFunc            func(ctx context.Context, testcaseID int32) (db.Testcase, error)
-	createTestcaseFunc             func(ctx context.Context, arg db.CreateTestcaseParams) (int32, error)
-	updateTestcaseFunc             func(ctx context.Context, arg db.UpdateTestcaseParams) error
-	deleteTestcaseFunc             func(ctx context.Context, testcaseID int32) error
-	listMainPlayersFunc            func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
-	listSubmissionIDsFunc          func(ctx context.Context) ([]int32, error)
-	getSubmissionsByGameIDFunc     func(ctx context.Context, gameID int32) ([]db.Submission, error)
-	getSubmissionByIDFunc          func(ctx context.Context, submissionID int32) (db.Submission, error)
-	getTestcaseResultsBySubmIDFunc func(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error)
-	listTestcasesByGameIDFunc      func(ctx context.Context, gameID int32) ([]db.Testcase, error)
-	updateGameStartedAtFunc        func(ctx context.Context, arg db.UpdateGameStartedAtParams) error
-	listTournamentsFunc            func(ctx context.Context) ([]db.Tournament, error)
-	getTournamentByIDFunc          func(ctx context.Context, tournamentID int32) (db.Tournament, error)
-	createTournamentFunc           func(ctx context.Context, arg db.CreateTournamentParams) (int32, error)
-	updateTournamentFunc           func(ctx context.Context, arg db.UpdateTournamentParams) error
-	listTournamentEntriesFunc      func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
-	deleteTournamentEntriesFunc    func(ctx context.Context, tournamentID int32) error
-	createTournamentEntryFunc      func(ctx context.Context, arg db.CreateTournamentEntryParams) error
-	listTournamentMatchesFunc      func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
-	createTournamentMatchFunc      func(ctx context.Context, arg db.CreateTournamentMatchParams) error
-	updateTournamentMatchGameFunc  func(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error
+	getUserByIDFunc                         func(ctx context.Context, userID int32) (db.User, error)
+	listUsersFunc                           func(ctx context.Context) ([]db.User, error)
+	updateUserFunc                          func(ctx context.Context, arg db.UpdateUserParams) error
+	listAllGamesFunc                        func(ctx context.Context) ([]db.Game, error)
+	getGameByIDFunc                         func(ctx context.Context, gameID int32) (db.GetGameByIDRow, error)
+	listProblemsFunc                        func(ctx context.Context) ([]db.Problem, error)
+	getProblemByIDFunc                      func(ctx context.Context, problemID int32) (db.Problem, error)
+	createGameFunc                          func(ctx context.Context, arg db.CreateGameParams) (int32, error)
+	createProblemFunc                       func(ctx context.Context, arg db.CreateProblemParams) (int32, error)
+	updateProblemFunc                       func(ctx context.Context, arg db.UpdateProblemParams) error
+	listTestcasesByProblemIDFunc            func(ctx context.Context, problemID int32) ([]db.Testcase, error)
+	getTestcaseByIDFunc                     func(ctx context.Context, testcaseID int32) (db.Testcase, error)
+	createTestcaseFunc                      func(ctx context.Context, arg db.CreateTestcaseParams) (int32, error)
+	updateTestcaseFunc                      func(ctx context.Context, arg db.UpdateTestcaseParams) error
+	deleteTestcaseFunc                      func(ctx context.Context, testcaseID int32) error
+	deleteTestcaseResultsBySubmissionIDFunc func(ctx context.Context, submissionID int32) error
+	listMainPlayersFunc                     func(ctx context.Context, gameIDs []int32) ([]db.ListMainPlayersRow, error)
+	listSubmissionIDsFunc                   func(ctx context.Context) ([]int32, error)
+	getSubmissionsByGameIDFunc              func(ctx context.Context, gameID int32) ([]db.Submission, error)
+	getSubmissionByIDFunc                   func(ctx context.Context, submissionID int32) (db.Submission, error)
+	getTestcaseResultsBySubmIDFunc          func(ctx context.Context, submissionID int32) ([]db.TestcaseResult, error)
+	updateSubmissionStatusFunc              func(ctx context.Context, arg db.UpdateSubmissionStatusParams) error
+	listTestcasesByGameIDFunc               func(ctx context.Context, gameID int32) ([]db.Testcase, error)
+	updateGameStartedAtFunc                 func(ctx context.Context, arg db.UpdateGameStartedAtParams) error
+	listTournamentsFunc                     func(ctx context.Context) ([]db.Tournament, error)
+	getTournamentByIDFunc                   func(ctx context.Context, tournamentID int32) (db.Tournament, error)
+	createTournamentFunc                    func(ctx context.Context, arg db.CreateTournamentParams) (int32, error)
+	updateTournamentFunc                    func(ctx context.Context, arg db.UpdateTournamentParams) error
+	listTournamentEntriesFunc               func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
+	deleteTournamentEntriesFunc             func(ctx context.Context, tournamentID int32) error
+	createTournamentEntryFunc               func(ctx context.Context, arg db.CreateTournamentEntryParams) error
+	listTournamentMatchesFunc               func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
+	createTournamentMatchFunc               func(ctx context.Context, arg db.CreateTournamentMatchParams) error
+	updateTournamentMatchGameFunc           func(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error
 }
 
 func (m *mockQuerier) GetUserByID(ctx context.Context, userID int32) (db.User, error) {
@@ -277,9 +279,35 @@ func (m *mockQuerier) CreateTournamentMatch(ctx context.Context, arg db.CreateTo
 	return nil
 }
 
+func (m *mockQuerier) DeleteTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) error {
+	if m.deleteTestcaseResultsBySubmissionIDFunc != nil {
+		return m.deleteTestcaseResultsBySubmissionIDFunc(ctx, submissionID)
+	}
+	return nil
+}
+
+func (m *mockQuerier) UpdateSubmissionStatus(ctx context.Context, arg db.UpdateSubmissionStatusParams) error {
+	if m.updateSubmissionStatusFunc != nil {
+		return m.updateSubmissionStatusFunc(ctx, arg)
+	}
+	return nil
+}
+
 func (m *mockQuerier) UpdateTournamentMatchGame(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error {
 	if m.updateTournamentMatchGameFunc != nil {
 		return m.updateTournamentMatchGameFunc(ctx, arg)
+	}
+	return nil
+}
+
+// mockGameHub implements GameHub for testing.
+type mockGameHub struct {
+	enqueueTestTasksFunc func(ctx context.Context, submissionID, gameID, userID int, language, code string) error
+}
+
+func (m *mockGameHub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error {
+	if m.enqueueTestTasksFunc != nil {
+		return m.enqueueTestTasksFunc(ctx, submissionID, gameID, userID, language, code)
 	}
 	return nil
 }
@@ -312,6 +340,7 @@ func newTestHandler(q *mockQuerier) *Handler {
 	return &Handler{
 		q:    q,
 		txm:  &mockTxManager{},
+		hub:  &mockGameHub{},
 		conf: &config.Config{BasePath: "/test/"},
 	}
 }
@@ -1230,7 +1259,8 @@ func TestPostTournamentNew_Success(t *testing.T) {
 	var createdParams db.CreateTournamentParams
 	var matchCount int
 	h := &Handler{
-		q: &mockQuerier{},
+		q:   &mockQuerier{},
+		hub: &mockGameHub{},
 		txm: &mockTxManager{
 			runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
 				return fn(&mockQuerier{
@@ -1351,6 +1381,115 @@ func TestPostTournamentEdit_NotFound(t *testing.T) {
 	err := h.postTournamentEdit(c)
 	if err == nil {
 		t.Fatal("expected error for non-existent tournament")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got %T", err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", httpErr.Code, http.StatusNotFound)
+	}
+}
+
+// --- Rejudge tests ---
+
+func TestPostSubmissionRejudge_Success(t *testing.T) {
+	var deletedSubmissionID int32
+	var updatedStatus db.UpdateSubmissionStatusParams
+	var enqueuedSubmissionID, enqueuedGameID, enqueuedUserID int
+	var enqueuedLanguage, enqueuedCode string
+
+	q := &mockQuerier{
+		getSubmissionByIDFunc: func(_ context.Context, submissionID int32) (db.Submission, error) {
+			return db.Submission{
+				SubmissionID: submissionID,
+				GameID:       1,
+				UserID:       10,
+				Code:         "<?php echo 1;",
+				CodeSize:     14,
+				Status:       "wrong_answer",
+				CreatedAt:    pgtype.Timestamp{Valid: true},
+			}, nil
+		},
+		getGameByIDFunc: func(_ context.Context, gameID int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{GameID: gameID, ProblemID: 1, Language: "php"}, nil
+		},
+	}
+
+	hub := &mockGameHub{
+		enqueueTestTasksFunc: func(_ context.Context, submissionID, gameID, userID int, language, code string) error {
+			enqueuedSubmissionID = submissionID
+			enqueuedGameID = gameID
+			enqueuedUserID = userID
+			enqueuedLanguage = language
+			enqueuedCode = code
+			return nil
+		},
+	}
+
+	txm := &mockTxManager{
+		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
+			return fn(&mockQuerier{
+				deleteTestcaseResultsBySubmissionIDFunc: func(_ context.Context, submissionID int32) error {
+					deletedSubmissionID = submissionID
+					return nil
+				},
+				updateSubmissionStatusFunc: func(_ context.Context, arg db.UpdateSubmissionStatusParams) error {
+					updatedStatus = arg
+					return nil
+				},
+			})
+		},
+	}
+
+	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+
+	c, rec := newEchoContextWithForm("/admin/games/1/submissions/5/rejudge", map[string]string{
+		"gameID":       "1",
+		"submissionID": "5",
+	}, url.Values{})
+
+	err := h.postSubmissionRejudge(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if deletedSubmissionID != 5 {
+		t.Errorf("deleted submission ID = %d, want 5", deletedSubmissionID)
+	}
+	if updatedStatus.SubmissionID != 5 || updatedStatus.Status != "running" {
+		t.Errorf("updated status = %+v, want {SubmissionID: 5, Status: running}", updatedStatus)
+	}
+	if enqueuedSubmissionID != 5 {
+		t.Errorf("enqueued submission ID = %d, want 5", enqueuedSubmissionID)
+	}
+	if enqueuedGameID != 1 {
+		t.Errorf("enqueued game ID = %d, want 1", enqueuedGameID)
+	}
+	if enqueuedUserID != 10 {
+		t.Errorf("enqueued user ID = %d, want 10", enqueuedUserID)
+	}
+	if enqueuedLanguage != "php" {
+		t.Errorf("enqueued language = %q, want %q", enqueuedLanguage, "php")
+	}
+	if enqueuedCode != "<?php echo 1;" {
+		t.Errorf("enqueued code = %q, want %q", enqueuedCode, "<?php echo 1;")
+	}
+}
+
+func TestPostSubmissionRejudge_SubmissionNotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
+
+	c, _ := newEchoContextWithForm("/admin/games/1/submissions/999/rejudge", map[string]string{
+		"gameID":       "1",
+		"submissionID": "999",
+	}, url.Values{})
+
+	err := h.postSubmissionRejudge(c)
+	if err == nil {
+		t.Fatal("expected error for non-existent submission")
 	}
 	httpErr, ok := err.(*echo.HTTPError)
 	if !ok {

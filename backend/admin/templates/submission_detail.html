@@ -18,6 +18,10 @@
   <li>Created At: {{ .Submission.CreatedAt }}</li>
 </ul>
 
+<form method="POST" action="{{ .BasePath }}admin/games/{{ .GameID }}/submissions/{{ .Submission.SubmissionID }}/rejudge">
+  <button type="submit">Rejudge</button>
+</form>
+
 <h3>Code</h3>
 <pre><code>{{ .Submission.Code }}</code></pre>
 

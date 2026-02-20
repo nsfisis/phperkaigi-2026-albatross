@@ -293,6 +293,15 @@ func (q *Queries) DeleteTestcase(ctx context.Context, testcaseID int32) error {
 	return err
 }
 
+const deleteTestcaseResultsBySubmissionID = `-- name: DeleteTestcaseResultsBySubmissionID :exec
+DELETE FROM testcase_results WHERE submission_id = $1
+`
+
+func (q *Queries) DeleteTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) error {
+	_, err := q.db.Exec(ctx, deleteTestcaseResultsBySubmissionID, submissionID)
+	return err
+}
+
 const deleteTournamentEntries = `-- name: DeleteTournamentEntries :exec
 DELETE FROM tournament_entries
 WHERE tournament_id = $1

@@ -271,6 +271,9 @@ FROM submissions
 WHERE submission_id = $1
 LIMIT 1;
 
+-- name: DeleteTestcaseResultsBySubmissionID :exec
+DELETE FROM testcase_results WHERE submission_id = $1;
+
 -- name: GetTestcaseResultsBySubmissionID :many
 SELECT *
 FROM testcase_results

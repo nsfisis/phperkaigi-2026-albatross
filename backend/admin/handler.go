@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -20,14 +21,19 @@ import (
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
+type GameHub interface {
+	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
+}
+
 type Handler struct {
 	q    db.Querier
 	txm  db.TxManager
+	hub  GameHub
 	conf *config.Config
 }
 
-func NewHandler(q db.Querier, txm db.TxManager, conf *config.Config) *Handler {
-	return &Handler{q: q, txm: txm, conf: conf}
+func NewHandler(q db.Querier, txm db.TxManager, hub GameHub, conf *config.Config) *Handler {
+	return &Handler{q: q, txm: txm, hub: hub, conf: conf}
 }
 
 func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
@@ -67,6 +73,7 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.POST("/games/:gameID/start", h.postGameStart)
 	g.GET("/games/:gameID/submissions", h.getSubmissions)
 	g.GET("/games/:gameID/submissions/:submissionID", h.getSubmissionDetail)
+	g.POST("/games/:gameID/submissions/:submissionID/rejudge", h.postSubmissionRejudge)
 
 	g.GET("/problems", h.getProblems)
 	g.GET("/problems/new", h.getProblemNew)
@@ -662,6 +669,56 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 		},
 		"TestcaseResults": testcaseResults,
 	})
+}
+
+func (h *Handler) postSubmissionRejudge(c echo.Context) error {
+	gameID, err := strconv.Atoi(c.Param("gameID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
+	}
+
+	submissionID, err := strconv.Atoi(c.Param("submissionID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid submission_id")
+	}
+
+	ctx := c.Request().Context()
+
+	submission, err := h.q.GetSubmissionByID(ctx, int32(submissionID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.DeleteTestcaseResultsBySubmissionID(ctx, int32(submissionID)); err != nil {
+			return err
+		}
+		return qtx.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
+			SubmissionID: int32(submissionID),
+			Status:       "running",
+		})
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	err = h.hub.EnqueueTestTasks(ctx, submissionID, gameID, int(submission.UserID), game.Language, submission.Code)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions/%d", h.conf.BasePath, gameID, submissionID))
 }
 
 func (h *Handler) getProblems(c echo.Context) error {

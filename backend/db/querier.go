@@ -25,6 +25,7 @@ type Querier interface {
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteSession(ctx context.Context, sessionID string) error
 	DeleteTestcase(ctx context.Context, testcaseID int32) error
+	DeleteTestcaseResultsBySubmissionID(ctx context.Context, submissionID int32) error
 	DeleteTournamentEntries(ctx context.Context, tournamentID int32) error
 	DeleteTournamentMatches(ctx context.Context, tournamentID int32) error
 	GetGameByID(ctx context.Context, gameID int32) (GetGameByIDRow, error)
