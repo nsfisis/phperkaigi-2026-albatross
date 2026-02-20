@@ -729,7 +729,7 @@ func TestGetGameWatchLatestStates_Empty(t *testing.T) {
 
 func TestToNullableWith(t *testing.T) {
 	t.Run("nil value", func(t *testing.T) {
-		result := toNullableWith[int, string](nil, func(_ int) string { return "x" })
+		result := toNullableWith(nil, func(_ int) string { return "x" })
 		if !result.IsNull() {
 			t.Error("expected null for nil input")
 		}

@@ -554,9 +554,9 @@ func (h *Handler) GetTournament(ctx context.Context, request GetTournamentReques
 	}
 	resultByKey := make(map[matchKey]*matchResult)
 
-	for round := 0; round < numRounds; round++ {
+	for round := range numRounds {
 		numPositions := bracketSize / (1 << (round + 1))
-		for pos := 0; pos < numPositions; pos++ {
+		for pos := range numPositions {
 			m, exists := matchByKey[matchKey{round, pos}]
 			mr := &matchResult{}
 

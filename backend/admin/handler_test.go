@@ -338,7 +338,7 @@ type mockRenderer struct {
 	lastData         any
 }
 
-func (r *mockRenderer) Render(_ io.Writer, name string, data interface{}, _ echo.Context) error {
+func (r *mockRenderer) Render(_ io.Writer, name string, data any, _ echo.Context) error {
 	r.lastTemplateName = name
 	r.lastData = data
 	return nil

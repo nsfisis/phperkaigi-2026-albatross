@@ -1145,9 +1145,9 @@ func (h *Handler) postTournamentNew(c echo.Context) error {
 			return err
 		}
 		// Create match slots for all rounds
-		for round := 0; round < numRounds; round++ {
+		for round := range numRounds {
 			numPositions := bracketSize / (1 << (round + 1))
-			for pos := 0; pos < numPositions; pos++ {
+			for pos := range numPositions {
 				if err := qtx.CreateTournamentMatch(ctx, db.CreateTournamentMatchParams{
 					TournamentID: tournamentID,
 					Round:        int32(round),
