@@ -62,11 +62,11 @@ func main() {
 	slices.Sort(methods)
 
 	loginOptionalMethods := map[string]bool{
-		"GetGames":                  true,
-		"GetGame":                   true,
-		"GetGameWatchLatestStates":  true,
-		"GetGameWatchRanking":       true,
-		"GetTournament":             true,
+		"GetGames":                 true,
+		"GetGame":                  true,
+		"GetGameWatchLatestStates": true,
+		"GetGameWatchRanking":      true,
+		"GetTournament":            true,
 	}
 
 	type TemplateParameter struct {
