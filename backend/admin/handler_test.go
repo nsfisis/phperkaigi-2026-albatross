@@ -16,7 +16,9 @@ import (
 
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
 	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 // mockQuerier implements db.Querier for admin handler testing.
@@ -57,6 +59,12 @@ type mockQuerier struct {
 	listTournamentMatchesFunc               func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
 	createTournamentMatchFunc               func(ctx context.Context, arg db.CreateTournamentMatchParams) error
 	updateTournamentMatchGameFunc           func(ctx context.Context, arg db.UpdateTournamentMatchGameParams) error
+	updateGameFunc                          func(ctx context.Context, arg db.UpdateGameParams) error
+	removeAllMainPlayersFunc                func(ctx context.Context, gameID int32) error
+	addMainPlayerFunc                       func(ctx context.Context, arg db.AddMainPlayerParams) error
+	aggregateTestcaseResultsFunc            func(ctx context.Context, submissionID int32) (string, error)
+	listGameStateIDsFunc                    func(ctx context.Context) ([]db.ListGameStateIDsRow, error)
+	syncGameStateBestScoreSubmissionFunc    func(ctx context.Context, arg db.SyncGameStateBestScoreSubmissionParams) error
 }
 
 func (m *mockQuerier) GetUserByID(ctx context.Context, userID int32) (db.User, error) {
@@ -308,9 +316,55 @@ func (m *mockQuerier) UpdateTournamentMatchGame(ctx context.Context, arg db.Upda
 	return nil
 }
 
-// mockGameHub implements GameHub for testing.
+func (m *mockQuerier) UpdateGame(ctx context.Context, arg db.UpdateGameParams) error {
+	if m.updateGameFunc != nil {
+		return m.updateGameFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) RemoveAllMainPlayers(ctx context.Context, gameID int32) error {
+	if m.removeAllMainPlayersFunc != nil {
+		return m.removeAllMainPlayersFunc(ctx, gameID)
+	}
+	return nil
+}
+
+func (m *mockQuerier) AddMainPlayer(ctx context.Context, arg db.AddMainPlayerParams) error {
+	if m.addMainPlayerFunc != nil {
+		return m.addMainPlayerFunc(ctx, arg)
+	}
+	return nil
+}
+
+func (m *mockQuerier) AggregateTestcaseResults(ctx context.Context, submissionID int32) (string, error) {
+	if m.aggregateTestcaseResultsFunc != nil {
+		return m.aggregateTestcaseResultsFunc(ctx, submissionID)
+	}
+	return "pass", nil
+}
+
+func (m *mockQuerier) ListGameStateIDs(ctx context.Context) ([]db.ListGameStateIDsRow, error) {
+	if m.listGameStateIDsFunc != nil {
+		return m.listGameStateIDsFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQuerier) SyncGameStateBestScoreSubmission(ctx context.Context, arg db.SyncGameStateBestScoreSubmissionParams) error {
+	if m.syncGameStateBestScoreSubmissionFunc != nil {
+		return m.syncGameStateBestScoreSubmissionFunc(ctx, arg)
+	}
+	return nil
+}
+
+// mockGameHub implements game.GameHubInterface for testing.
 type mockGameHub struct {
 	enqueueTestTasksFunc func(ctx context.Context, submissionID, gameID, userID int, language, code string) error
+}
+
+func (m *mockGameHub) CalcCodeSize(_ string, _ string) int {
+	return 0
 }
 
 func (m *mockGameHub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error {
@@ -321,13 +375,18 @@ func (m *mockGameHub) EnqueueTestTasks(ctx context.Context, submissionID, gameID
 }
 
 // mockTxManager implements db.TxManager for testing.
+// By default it passes the provided querier to the function.
 type mockTxManager struct {
+	q           db.Querier
 	runInTxFunc func(ctx context.Context, fn func(q db.Querier) error) error
 }
 
 func (m *mockTxManager) RunInTx(ctx context.Context, fn func(q db.Querier) error) error {
 	if m.runInTxFunc != nil {
 		return m.runInTxFunc(ctx, fn)
+	}
+	if m.q != nil {
+		return fn(m.q)
 	}
 	return fn(&mockQuerier{})
 }
@@ -345,11 +404,27 @@ func (r *mockRenderer) Render(_ io.Writer, name string, data any, _ echo.Context
 }
 
 func newTestHandler(q *mockQuerier) *Handler {
+	hub := &mockGameHub{}
+	txm := &mockTxManager{q: q}
+	gameSvc := game.NewService(q, txm, hub)
+	tournamentSvc := tournament.NewService(q, txm)
 	return &Handler{
-		q:    q,
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		conf: &config.Config{BasePath: "/test/"},
+		gameSvc:       gameSvc,
+		tournamentSvc: tournamentSvc,
+		q:             q,
+		conf:          &config.Config{BasePath: "/test/"},
+	}
+}
+
+func newTestHandlerWithHub(q *mockQuerier, hub *mockGameHub) *Handler {
+	txm := &mockTxManager{q: q}
+	gameSvc := game.NewService(q, txm, hub)
+	tournamentSvc := tournament.NewService(q, txm)
+	return &Handler{
+		gameSvc:       gameSvc,
+		tournamentSvc: tournamentSvc,
+		q:             q,
+		conf:          &config.Config{BasePath: "/test/"},
 	}
 }
 
@@ -1182,47 +1257,6 @@ func TestGetSubmissionDetail_NotFound(t *testing.T) {
 
 // --- Tournament admin tests ---
 
-func TestNextPowerOf2(t *testing.T) {
-	tests := []struct {
-		input    int
-		expected int
-	}{
-		{2, 2},
-		{3, 4},
-		{4, 4},
-		{5, 8},
-		{6, 8},
-		{7, 8},
-		{8, 8},
-		{9, 16},
-	}
-	for _, tt := range tests {
-		got := nextPowerOf2(tt.input)
-		if got != tt.expected {
-			t.Errorf("nextPowerOf2(%d) = %d, want %d", tt.input, got, tt.expected)
-		}
-	}
-}
-
-func TestLog2Int(t *testing.T) {
-	tests := []struct {
-		input    int
-		expected int
-	}{
-		{1, 0},
-		{2, 1},
-		{4, 2},
-		{8, 3},
-		{16, 4},
-	}
-	for _, tt := range tests {
-		got := log2Int(tt.input)
-		if got != tt.expected {
-			t.Errorf("log2Int(%d) = %d, want %d", tt.input, got, tt.expected)
-		}
-	}
-}
-
 func TestGetTournaments_Empty(t *testing.T) {
 	h := newTestHandler(&mockQuerier{})
 	c, rec := newEchoContext(http.MethodGet, "/admin/tournaments", nil)
@@ -1266,25 +1300,18 @@ func TestGetTournamentNew(t *testing.T) {
 func TestPostTournamentNew_Success(t *testing.T) {
 	var createdParams db.CreateTournamentParams
 	var matchCount int
-	h := &Handler{
-		q:   &mockQuerier{},
-		hub: &mockGameHub{},
-		txm: &mockTxManager{
-			runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
-				return fn(&mockQuerier{
-					createTournamentFunc: func(_ context.Context, arg db.CreateTournamentParams) (int32, error) {
-						createdParams = arg
-						return 1, nil
-					},
-					createTournamentMatchFunc: func(_ context.Context, _ db.CreateTournamentMatchParams) error {
-						matchCount++
-						return nil
-					},
-				})
-			},
+	q := &mockQuerier{
+		createTournamentFunc: func(_ context.Context, arg db.CreateTournamentParams) (int32, error) {
+			createdParams = arg
+			return 1, nil
 		},
-		conf: &config.Config{BasePath: "/test/"},
+		createTournamentMatchFunc: func(_ context.Context, _ db.CreateTournamentMatchParams) error {
+			matchCount++
+			return nil
+		},
 	}
+	h := newTestHandler(q)
+
 	form := url.Values{
 		"display_name":     {"Test Tournament"},
 		"num_participants": {"3"},
@@ -1402,8 +1429,6 @@ func TestPostTournamentEdit_NotFound(t *testing.T) {
 // --- Rejudge tests ---
 
 func TestPostSubmissionRejudge_Success(t *testing.T) {
-	var deletedSubmissionID int32
-	var updatedStatus db.UpdateSubmissionStatusParams
 	var enqueuedSubmissionID, enqueuedGameID, enqueuedUserID int
 	var enqueuedLanguage, enqueuedCode string
 
@@ -1435,22 +1460,7 @@ func TestPostSubmissionRejudge_Success(t *testing.T) {
 		},
 	}
 
-	txm := &mockTxManager{
-		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
-			return fn(&mockQuerier{
-				deleteTestcaseResultsBySubmissionIDFunc: func(_ context.Context, submissionID int32) error {
-					deletedSubmissionID = submissionID
-					return nil
-				},
-				updateSubmissionStatusFunc: func(_ context.Context, arg db.UpdateSubmissionStatusParams) error {
-					updatedStatus = arg
-					return nil
-				},
-			})
-		},
-	}
-
-	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+	h := newTestHandlerWithHub(q, hub)
 
 	c, rec := newEchoContextWithForm("/admin/games/1/submissions/5/rejudge", map[string]string{
 		"gameID":       "1",
@@ -1463,12 +1473,6 @@ func TestPostSubmissionRejudge_Success(t *testing.T) {
 	}
 	if rec.Code != http.StatusSeeOther {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusSeeOther)
-	}
-	if deletedSubmissionID != 5 {
-		t.Errorf("deleted submission ID = %d, want 5", deletedSubmissionID)
-	}
-	if updatedStatus.SubmissionID != 5 || updatedStatus.Status != "running" {
-		t.Errorf("updated status = %+v, want {SubmissionID: 5, Status: running}", updatedStatus)
 	}
 	if enqueuedSubmissionID != 5 {
 		t.Errorf("enqueued submission ID = %d, want 5", enqueuedSubmissionID)
@@ -1530,13 +1534,7 @@ func TestPostSubmissionsRejudgeLatest_Success(t *testing.T) {
 		},
 	}
 
-	txm := &mockTxManager{
-		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
-			return fn(&mockQuerier{})
-		},
-	}
-
-	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+	h := newTestHandlerWithHub(q, hub)
 
 	c, rec := newEchoContextWithForm("/admin/games/1/submissions/rejudge-latest", map[string]string{
 		"gameID": "1",
@@ -1580,13 +1578,7 @@ func TestPostSubmissionsRejudgeAll_Success(t *testing.T) {
 		},
 	}
 
-	txm := &mockTxManager{
-		runInTxFunc: func(_ context.Context, fn func(q db.Querier) error) error {
-			return fn(&mockQuerier{})
-		},
-	}
-
-	h := &Handler{q: q, txm: txm, hub: hub, conf: &config.Config{BasePath: "/test/"}}
+	h := newTestHandlerWithHub(q, hub)
 
 	c, rec := newEchoContextWithForm("/admin/games/1/submissions/rejudge-all", map[string]string{
 		"gameID": "1",

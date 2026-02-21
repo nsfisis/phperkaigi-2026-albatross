@@ -11,11 +11,29 @@ import (
 )
 
 type Service struct {
-	q db.Querier
+	q   db.Querier
+	txm db.TxManager
 }
 
-func NewService(q db.Querier) *Service {
-	return &Service{q: q}
+func NewService(q db.Querier, txm db.TxManager) *Service {
+	return &Service{q: q, txm: txm}
+}
+
+func nextPowerOf2(n int) int {
+	p := 1
+	for p < n {
+		p *= 2
+	}
+	return p
+}
+
+func log2Int(n int) int {
+	r := 0
+	for n > 1 {
+		n /= 2
+		r++
+	}
+	return r
 }
 
 // Domain types
@@ -299,5 +317,149 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 		NumRounds:    numRounds,
 		Entries:      entries,
 		Matches:      apiMatches,
+	}, nil
+}
+
+// CreateTournament creates a new tournament with the given number of participants.
+func (s *Service) CreateTournament(ctx context.Context, displayName string, numParticipants int) (int, error) {
+	if numParticipants < 2 {
+		return 0, errors.New("num_participants must be >= 2")
+	}
+
+	bracketSize := nextPowerOf2(numParticipants)
+	numRounds := log2Int(bracketSize)
+
+	var tournamentID int32
+	err := s.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		var err error
+		tournamentID, err = qtx.CreateTournament(ctx, db.CreateTournamentParams{
+			DisplayName: displayName,
+			BracketSize: int32(bracketSize),
+			NumRounds:   int32(numRounds),
+		})
+		if err != nil {
+			return err
+		}
+		for round := range numRounds {
+			numPositions := bracketSize / (1 << (round + 1))
+			for pos := range numPositions {
+				if err := qtx.CreateTournamentMatch(ctx, db.CreateTournamentMatchParams{
+					TournamentID: tournamentID,
+					Round:        int32(round),
+					Position:     int32(pos),
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(tournamentID), nil
+}
+
+// SeedEntry represents a seed-to-user mapping.
+type SeedEntry struct {
+	Seed   int
+	UserID int
+}
+
+// MatchGame represents a match-to-game mapping.
+type MatchGame struct {
+	MatchID int
+	GameID  *int32
+}
+
+// UpdateTournamentParams holds parameters for updating a tournament.
+type UpdateTournamentParams struct {
+	TournamentID int
+	DisplayName  string
+	SeedEntries  []SeedEntry
+	MatchGames   []MatchGame
+}
+
+// UpdateTournament updates a tournament's display name, entries, and match games.
+func (s *Service) UpdateTournament(ctx context.Context, params UpdateTournamentParams) error {
+	t, err := s.q.GetTournamentByID(ctx, int32(params.TournamentID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return game.ErrNotFound
+		}
+		return err
+	}
+
+	return s.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.UpdateTournament(ctx, db.UpdateTournamentParams{
+			TournamentID: int32(params.TournamentID),
+			DisplayName:  params.DisplayName,
+			BracketSize:  t.BracketSize,
+			NumRounds:    t.NumRounds,
+		}); err != nil {
+			return err
+		}
+
+		if err := qtx.DeleteTournamentEntries(ctx, int32(params.TournamentID)); err != nil {
+			return err
+		}
+		for _, se := range params.SeedEntries {
+			if err := qtx.CreateTournamentEntry(ctx, db.CreateTournamentEntryParams{
+				TournamentID: int32(params.TournamentID),
+				UserID:       int32(se.UserID),
+				Seed:         int32(se.Seed),
+			}); err != nil {
+				return err
+			}
+		}
+
+		for _, mg := range params.MatchGames {
+			if err := qtx.UpdateTournamentMatchGame(ctx, db.UpdateTournamentMatchGameParams{
+				TournamentMatchID: int32(mg.MatchID),
+				GameID:            mg.GameID,
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+// TournamentEditData holds data needed for the tournament edit page.
+type TournamentEditData struct {
+	Tournament  db.Tournament
+	SeedUserMap map[int]int
+	Matches     []db.TournamentMatch
+}
+
+// GetTournamentEditData retrieves the data needed for editing a tournament.
+func (s *Service) GetTournamentEditData(ctx context.Context, tournamentID int) (TournamentEditData, error) {
+	t, err := s.q.GetTournamentByID(ctx, int32(tournamentID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TournamentEditData{}, game.ErrNotFound
+		}
+		return TournamentEditData{}, err
+	}
+
+	entryRows, err := s.q.ListTournamentEntries(ctx, int32(tournamentID))
+	if err != nil {
+		return TournamentEditData{}, err
+	}
+	seedUserMap := make(map[int]int)
+	for _, e := range entryRows {
+		seedUserMap[int(e.Seed)] = int(e.UserID)
+	}
+
+	matchRows, err := s.q.ListTournamentMatches(ctx, int32(tournamentID))
+	if err != nil {
+		return TournamentEditData{}, err
+	}
+
+	return TournamentEditData{
+		Tournament:  t,
+		SeedUserMap: seedUserMap,
+		Matches:     matchRows,
 	}, nil
 }

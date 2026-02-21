@@ -160,7 +160,7 @@ func newTestHandler(q *mockQuerier) Handler {
 	hub := &mockGameHub{}
 	return Handler{
 		gameSvc:       game.NewService(q, &mockTxManager{}, hub),
-		tournamentSvc: tournament.NewService(q),
+		tournamentSvc: tournament.NewService(q, &mockTxManager{}),
 		auth:          &mockAuthenticator{},
 		conf:          &config.Config{},
 		q:             q,
@@ -170,7 +170,7 @@ func newTestHandler(q *mockQuerier) Handler {
 func newTestHandlerWithHub(q *mockQuerier, hub *mockGameHub) Handler {
 	return Handler{
 		gameSvc:       game.NewService(q, &mockTxManager{}, hub),
-		tournamentSvc: tournament.NewService(q),
+		tournamentSvc: tournament.NewService(q, &mockTxManager{}),
 		auth:          &mockAuthenticator{},
 		conf:          &config.Config{},
 		q:             q,
@@ -443,7 +443,7 @@ func TestGetGame_PublicGameSuccess(t *testing.T) {
 func TestPostLogin_AuthFailure(t *testing.T) {
 	h := Handler{
 		gameSvc:       game.NewService(&mockQuerier{}, &mockTxManager{}, &mockGameHub{}),
-		tournamentSvc: tournament.NewService(&mockQuerier{}),
+		tournamentSvc: tournament.NewService(&mockQuerier{}, &mockTxManager{}),
 		auth:          &mockAuthenticator{loginErr: errors.New("invalid credentials")},
 		conf:          &config.Config{},
 		q:             &mockQuerier{},
@@ -462,7 +462,7 @@ func TestPostLogin_AuthFailure(t *testing.T) {
 func TestPostLogout(t *testing.T) {
 	h := Handler{
 		gameSvc:       game.NewService(&mockQuerier{}, &mockTxManager{}, &mockGameHub{}),
-		tournamentSvc: tournament.NewService(&mockQuerier{}),
+		tournamentSvc: tournament.NewService(&mockQuerier{}, &mockTxManager{}),
 		auth:          &mockAuthenticator{},
 		conf:          &config.Config{BasePath: "/"},
 		q:             &mockQuerier{},

@@ -107,11 +107,11 @@ func main() {
 	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
 	gameSvc := game.NewService(queries, txm, gameHub)
-	tournamentSvc := tournament.NewService(queries)
+	tournamentSvc := tournament.NewService(queries, txm)
 	apiHandler := api.NewHandler(gameSvc, tournamentSvc, authenticator, queries, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
-	adminHandler := admin.NewHandler(queries, txm, gameHub, conf)
+	adminHandler := admin.NewHandler(gameSvc, tournamentSvc, queries, conf)
 	adminGroup := e.Group(conf.BasePath + "admin")
 	adminGroup.Use(api.SessionCookieMiddleware(queries))
 	adminHandler.RegisterHandlers(adminGroup)

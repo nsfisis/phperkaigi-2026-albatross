@@ -374,6 +374,165 @@ func (s *Service) GetRanking(ctx context.Context, gameID int) ([]RankingEntry, b
 	return ranking, finished, nil
 }
 
+// UpdateGameParams holds parameters for updating a game with its players.
+type UpdateGameParams struct {
+	GameID          int
+	GameType        string
+	IsPublic        bool
+	DisplayName     string
+	DurationSeconds int
+	StartedAt       pgtype.Timestamp
+	ProblemID       int
+	MainPlayerIDs   []int
+}
+
+func (s *Service) StartGame(ctx context.Context, gameID int) error {
+	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	testcases, err := s.q.ListTestcasesByProblemID(ctx, gameRow.ProblemID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if len(testcases) == 0 {
+		return ErrNoTestcases
+	}
+
+	startedAt := time.Now().Add(10 * time.Second)
+	return s.q.UpdateGameStartedAt(ctx, db.UpdateGameStartedAtParams{
+		GameID: int32(gameID),
+		StartedAt: pgtype.Timestamp{
+			Time:  startedAt,
+			Valid: true,
+		},
+	})
+}
+
+func (s *Service) UpdateGameWithPlayers(ctx context.Context, params UpdateGameParams) error {
+	return s.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.UpdateGame(ctx, db.UpdateGameParams{
+			GameID:          int32(params.GameID),
+			GameType:        params.GameType,
+			IsPublic:        params.IsPublic,
+			DisplayName:     params.DisplayName,
+			DurationSeconds: int32(params.DurationSeconds),
+			StartedAt:       params.StartedAt,
+			ProblemID:       int32(params.ProblemID),
+		}); err != nil {
+			return err
+		}
+		if err := qtx.RemoveAllMainPlayers(ctx, int32(params.GameID)); err != nil {
+			return err
+		}
+		for _, userID := range params.MainPlayerIDs {
+			if err := qtx.AddMainPlayer(ctx, db.AddMainPlayerParams{
+				GameID: int32(params.GameID),
+				UserID: int32(userID),
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (s *Service) RejudgeSubmission(ctx context.Context, submissionID int32, gameID int, userID int, language, code string) error {
+	err := s.txm.RunInTx(ctx, func(qtx db.Querier) error {
+		if err := qtx.DeleteTestcaseResultsBySubmissionID(ctx, submissionID); err != nil {
+			return err
+		}
+		return qtx.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
+			SubmissionID: submissionID,
+			Status:       "running",
+		})
+	})
+	if err != nil {
+		return err
+	}
+	return s.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, userID, language, code)
+}
+
+func (s *Service) RejudgeLatestSubmissionsByGame(ctx context.Context, gameID int) error {
+	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	submissions, err := s.q.GetLatestSubmissionsByGameID(ctx, int32(gameID))
+	if err != nil {
+		return err
+	}
+
+	for _, sub := range submissions {
+		if err := s.RejudgeSubmission(ctx, sub.SubmissionID, int(sub.GameID), int(sub.UserID), gameRow.Language, sub.Code); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) RejudgeAllSubmissionsByGame(ctx context.Context, gameID int) error {
+	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	submissions, err := s.q.GetSubmissionsByGameID(ctx, int32(gameID))
+	if err != nil {
+		return err
+	}
+
+	for _, sub := range submissions {
+		if err := s.RejudgeSubmission(ctx, sub.SubmissionID, int(sub.GameID), int(sub.UserID), gameRow.Language, sub.Code); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) FixSubmissionStatuses(ctx context.Context) error {
+	submissionIDs, err := s.q.ListSubmissionIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, submissionID := range submissionIDs {
+		as, err := s.q.AggregateTestcaseResults(ctx, submissionID)
+		if err != nil {
+			return err
+		}
+		if err := s.q.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
+			SubmissionID: submissionID,
+			Status:       as,
+		}); err != nil {
+			return err
+		}
+	}
+
+	gameStates, err := s.q.ListGameStateIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range gameStates {
+		if err := s.q.SyncGameStateBestScoreSubmission(ctx, db.SyncGameStateBestScoreSubmissionParams{
+			GameID: r.GameID,
+			UserID: r.UserID,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) GetSubmissions(ctx context.Context, gameID int, userID int32) ([]SubmissionDetail, error) {
 	_, err := s.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {

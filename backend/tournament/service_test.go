@@ -95,3 +95,44 @@ func TestFindSeedByUserID(t *testing.T) {
 		t.Errorf("expected seed 0 for unknown user, got %d", got)
 	}
 }
+
+func TestNextPowerOf2(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		{2, 2},
+		{3, 4},
+		{4, 4},
+		{5, 8},
+		{6, 8},
+		{7, 8},
+		{8, 8},
+		{9, 16},
+	}
+	for _, tt := range tests {
+		got := nextPowerOf2(tt.input)
+		if got != tt.expected {
+			t.Errorf("nextPowerOf2(%d) = %d, want %d", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestLog2Int(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		{1, 0},
+		{2, 1},
+		{4, 2},
+		{8, 3},
+		{16, 4},
+	}
+	for _, tt := range tests {
+		got := log2Int(tt.input)
+		if got != tt.expected {
+			t.Errorf("log2Int(%d) = %d, want %d", tt.input, got, tt.expected)
+		}
+	}
+}

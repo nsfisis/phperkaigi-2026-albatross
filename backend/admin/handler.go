@@ -16,24 +16,22 @@ import (
 	"albatross-2026-backend/account"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
 	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
-type GameHub interface {
-	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
-}
-
 type Handler struct {
-	q    db.Querier
-	txm  db.TxManager
-	hub  GameHub
-	conf *config.Config
+	gameSvc       *game.Service
+	tournamentSvc *tournament.Service
+	q             db.Querier
+	conf          *config.Config
 }
 
-func NewHandler(q db.Querier, txm db.TxManager, hub GameHub, conf *config.Config) *Handler {
-	return &Handler{q: q, txm: txm, hub: hub, conf: conf}
+func NewHandler(gameSvc *game.Service, tournamentSvc *tournament.Service, q db.Querier, conf *config.Config) *Handler {
+	return &Handler{gameSvc: gameSvc, tournamentSvc: tournamentSvc, q: q, conf: conf}
 }
 
 func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
@@ -149,38 +147,8 @@ func (h *Handler) getOnlineQualifyingRanking(c echo.Context) error {
 }
 
 func (h *Handler) postFix(c echo.Context) error {
-	rows, err := h.q.ListSubmissionIDs(c.Request().Context())
-	if err != nil {
+	if err := h.gameSvc.FixSubmissionStatuses(c.Request().Context()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	for _, submissionID := range rows {
-		as, err := h.q.AggregateTestcaseResults(c.Request().Context(), submissionID)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		err = h.q.UpdateSubmissionStatus(c.Request().Context(), db.UpdateSubmissionStatusParams{
-			SubmissionID: submissionID,
-			Status:       as,
-		})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-	}
-
-	rows2, err := h.q.ListGameStateIDs(c.Request().Context())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	for _, r := range rows2 {
-		gameID := r.GameID
-		userID := r.UserID
-		err := h.q.SyncGameStateBestScoreSubmission(c.Request().Context(), db.SyncGameStateBestScoreSubmissionParams{
-			GameID: gameID,
-			UserID: userID,
-		})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
 	}
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/dashboard")
 }
@@ -519,31 +487,15 @@ func (h *Handler) postGameEdit(c echo.Context) error {
 		mainPlayers = append(mainPlayers, mainPlayer2)
 	}
 
-	ctx := c.Request().Context()
-	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		if err := qtx.UpdateGame(ctx, db.UpdateGameParams{
-			GameID:          int32(gameID),
-			GameType:        gameType,
-			IsPublic:        isPublic,
-			DisplayName:     displayName,
-			DurationSeconds: int32(durationSeconds),
-			StartedAt:       changedStartedAt,
-			ProblemID:       int32(problemID),
-		}); err != nil {
-			return err
-		}
-		if err := qtx.RemoveAllMainPlayers(ctx, int32(gameID)); err != nil {
-			return err
-		}
-		for _, userID := range mainPlayers {
-			if err := qtx.AddMainPlayer(ctx, db.AddMainPlayerParams{
-				GameID: int32(gameID),
-				UserID: int32(userID),
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
+	err = h.gameSvc.UpdateGameWithPlayers(c.Request().Context(), game.UpdateGameParams{
+		GameID:          gameID,
+		GameType:        gameType,
+		IsPublic:        isPublic,
+		DisplayName:     displayName,
+		DurationSeconds: durationSeconds,
+		StartedAt:       changedStartedAt,
+		ProblemID:       problemID,
+		MainPlayerIDs:   mainPlayers,
 	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -558,34 +510,14 @@ func (h *Handler) postGameStart(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game id")
 	}
 
-	game, err := h.q.GetGameByID(c.Request().Context(), int32(gameID))
+	err = h.gameSvc.StartGame(c.Request().Context(), gameID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "Game not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	testcases, err := h.q.ListTestcasesByProblemID(c.Request().Context(), game.ProblemID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNoTestcases) {
 			return echo.NewHTTPError(http.StatusBadRequest, "No testcases")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	if len(testcases) == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "No testcases")
-	}
-
-	startedAt := time.Now().Add(10 * time.Second)
-
-	err = h.q.UpdateGameStartedAt(c.Request().Context(), db.UpdateGameStartedAtParams{
-		GameID: int32(gameID),
-		StartedAt: pgtype.Timestamp{
-			Time:  startedAt,
-			Valid: true,
-		},
-	})
-	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -673,22 +605,6 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 	})
 }
 
-func (h *Handler) rejudgeSubmission(ctx context.Context, submission db.Submission, language string) error {
-	err := h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		if err := qtx.DeleteTestcaseResultsBySubmissionID(ctx, submission.SubmissionID); err != nil {
-			return err
-		}
-		return qtx.UpdateSubmissionStatus(ctx, db.UpdateSubmissionStatusParams{
-			SubmissionID: submission.SubmissionID,
-			Status:       "running",
-		})
-	})
-	if err != nil {
-		return err
-	}
-	return h.hub.EnqueueTestTasks(ctx, int(submission.SubmissionID), int(submission.GameID), int(submission.UserID), language, submission.Code)
-}
-
 func (h *Handler) postSubmissionRejudge(c echo.Context) error {
 	gameID, err := strconv.Atoi(c.Param("gameID"))
 	if err != nil {
@@ -710,7 +626,7 @@ func (h *Handler) postSubmissionRejudge(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	g, err := h.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound)
@@ -718,7 +634,7 @@ func (h *Handler) postSubmissionRejudge(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	if err := h.rejudgeSubmission(ctx, submission, game.Language); err != nil {
+	if err := h.gameSvc.RejudgeSubmission(ctx, submission.SubmissionID, int(submission.GameID), int(submission.UserID), g.Language, submission.Code); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -731,25 +647,12 @@ func (h *Handler) postSubmissionsRejudgeLatest(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
 	}
 
-	ctx := c.Request().Context()
-
-	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	err = h.gameSvc.RejudgeLatestSubmissionsByGame(c.Request().Context(), gameID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound)
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	submissions, err := h.q.GetLatestSubmissionsByGameID(ctx, int32(gameID))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	for _, s := range submissions {
-		if err := h.rejudgeSubmission(ctx, s, game.Language); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
 	}
 
 	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions", h.conf.BasePath, gameID))
@@ -761,25 +664,12 @@ func (h *Handler) postSubmissionsRejudgeAll(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
 	}
 
-	ctx := c.Request().Context()
-
-	game, err := h.q.GetGameByID(ctx, int32(gameID))
+	err = h.gameSvc.RejudgeAllSubmissionsByGame(c.Request().Context(), gameID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound)
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	submissions, err := h.q.GetSubmissionsByGameID(ctx, int32(gameID))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	for _, s := range submissions {
-		if err := h.rejudgeSubmission(ctx, s, game.Language); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
 	}
 
 	return c.Redirect(http.StatusSeeOther, fmt.Sprintf("%sadmin/games/%d/submissions", h.conf.BasePath, gameID))
@@ -1107,23 +997,6 @@ func (h *Handler) getTournamentNew(c echo.Context) error {
 	})
 }
 
-func nextPowerOf2(n int) int {
-	p := 1
-	for p < n {
-		p *= 2
-	}
-	return p
-}
-
-func log2Int(n int) int {
-	r := 0
-	for n > 1 {
-		n /= 2
-		r++
-	}
-	return r
-}
-
 func (h *Handler) postTournamentNew(c echo.Context) error {
 	displayName := c.FormValue("display_name")
 	numParticipants, err := strconv.Atoi(c.FormValue("num_participants"))
@@ -1131,34 +1004,7 @@ func (h *Handler) postTournamentNew(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid num_participants")
 	}
 
-	bracketSize := nextPowerOf2(numParticipants)
-	numRounds := log2Int(bracketSize)
-
-	ctx := c.Request().Context()
-	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		tournamentID, err := qtx.CreateTournament(ctx, db.CreateTournamentParams{
-			DisplayName: displayName,
-			BracketSize: int32(bracketSize),
-			NumRounds:   int32(numRounds),
-		})
-		if err != nil {
-			return err
-		}
-		// Create match slots for all rounds
-		for round := range numRounds {
-			numPositions := bracketSize / (1 << (round + 1))
-			for pos := range numPositions {
-				if err := qtx.CreateTournamentMatch(ctx, db.CreateTournamentMatchParams{
-					TournamentID: tournamentID,
-					Round:        int32(round),
-					Position:     int32(pos),
-				}); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
+	_, err = h.tournamentSvc.CreateTournament(c.Request().Context(), displayName, numParticipants)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -1173,30 +1019,19 @@ func (h *Handler) getTournamentEdit(c echo.Context) error {
 	}
 	ctx := c.Request().Context()
 
-	tournament, err := h.q.GetTournamentByID(ctx, int32(tournamentID))
+	editData, err := h.tournamentSvc.GetTournamentEditData(ctx, tournamentID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound)
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	entryRows, err := h.q.ListTournamentEntries(ctx, int32(tournamentID))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	seedUserMap := make(map[int]int)
-	for _, e := range entryRows {
-		seedUserMap[int(e.Seed)] = int(e.UserID)
-	}
+	t := editData.Tournament
 
-	matchRows, err := h.q.ListTournamentMatches(ctx, int32(tournamentID))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
 	matchGameMap := make(map[int]int)
 	var matches []echo.Map
-	for _, m := range matchRows {
+	for _, m := range editData.Matches {
 		gameID := 0
 		if m.GameID != nil {
 			gameID = int(*m.GameID)
@@ -1235,7 +1070,7 @@ func (h *Handler) getTournamentEdit(c echo.Context) error {
 		})
 	}
 
-	seeds := make([]int, tournament.BracketSize)
+	seeds := make([]int, t.BracketSize)
 	for i := range seeds {
 		seeds[i] = i + 1
 	}
@@ -1244,13 +1079,13 @@ func (h *Handler) getTournamentEdit(c echo.Context) error {
 		"BasePath": h.conf.BasePath,
 		"Title":    "Tournament Edit",
 		"Tournament": echo.Map{
-			"TournamentID": tournament.TournamentID,
-			"DisplayName":  tournament.DisplayName,
-			"BracketSize":  tournament.BracketSize,
-			"NumRounds":    tournament.NumRounds,
+			"TournamentID": t.TournamentID,
+			"DisplayName":  t.DisplayName,
+			"BracketSize":  t.BracketSize,
+			"NumRounds":    t.NumRounds,
 		},
 		"Seeds":        seeds,
-		"SeedUserMap":  seedUserMap,
+		"SeedUserMap":  editData.SeedUserMap,
 		"Matches":      matches,
 		"MatchGameMap": matchGameMap,
 		"Users":        users,
@@ -1265,9 +1100,11 @@ func (h *Handler) postTournamentEdit(c echo.Context) error {
 	}
 	ctx := c.Request().Context()
 
-	tournament, err := h.q.GetTournamentByID(ctx, int32(tournamentID))
+	// We need the tournament to know bracket size for seed parsing,
+	// and matches for match game parsing.
+	editData, err := h.tournamentSvc.GetTournamentEditData(ctx, tournamentID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound)
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -1276,12 +1113,8 @@ func (h *Handler) postTournamentEdit(c echo.Context) error {
 	displayName := c.FormValue("display_name")
 
 	// Parse seed → user assignments
-	type seedEntry struct {
-		seed   int
-		userID int
-	}
-	var seedEntries []seedEntry
-	for seed := 1; seed <= int(tournament.BracketSize); seed++ {
+	var seedEntries []tournament.SeedEntry
+	for seed := 1; seed <= int(editData.Tournament.BracketSize); seed++ {
 		raw := c.FormValue("seed_" + strconv.Itoa(seed))
 		if raw == "" || raw == "0" {
 			continue
@@ -1290,20 +1123,12 @@ func (h *Handler) postTournamentEdit(c echo.Context) error {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid seed_"+strconv.Itoa(seed))
 		}
-		seedEntries = append(seedEntries, seedEntry{seed: seed, userID: userID})
+		seedEntries = append(seedEntries, tournament.SeedEntry{Seed: seed, UserID: userID})
 	}
 
 	// Parse match → game assignments
-	matchRows, err := h.q.ListTournamentMatches(ctx, int32(tournamentID))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	type matchGame struct {
-		matchID int
-		gameID  *int32
-	}
-	var matchGames []matchGame
-	for _, m := range matchRows {
+	var matchGames []tournament.MatchGame
+	for _, m := range editData.Matches {
 		raw := c.FormValue("match_" + strconv.Itoa(int(m.TournamentMatchID)))
 		var gameID *int32
 		if raw != "" && raw != "0" {
@@ -1314,46 +1139,19 @@ func (h *Handler) postTournamentEdit(c echo.Context) error {
 			gid32 := int32(gid)
 			gameID = &gid32
 		}
-		matchGames = append(matchGames, matchGame{matchID: int(m.TournamentMatchID), gameID: gameID})
+		matchGames = append(matchGames, tournament.MatchGame{MatchID: int(m.TournamentMatchID), GameID: gameID})
 	}
 
-	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		if err := qtx.UpdateTournament(ctx, db.UpdateTournamentParams{
-			TournamentID: int32(tournamentID),
-			DisplayName:  displayName,
-			BracketSize:  tournament.BracketSize,
-			NumRounds:    tournament.NumRounds,
-		}); err != nil {
-			return err
-		}
-
-		// Replace entries
-		if err := qtx.DeleteTournamentEntries(ctx, int32(tournamentID)); err != nil {
-			return err
-		}
-		for _, se := range seedEntries {
-			if err := qtx.CreateTournamentEntry(ctx, db.CreateTournamentEntryParams{
-				TournamentID: int32(tournamentID),
-				UserID:       int32(se.userID),
-				Seed:         int32(se.seed),
-			}); err != nil {
-				return err
-			}
-		}
-
-		// Update match game assignments
-		for _, mg := range matchGames {
-			if err := qtx.UpdateTournamentMatchGame(ctx, db.UpdateTournamentMatchGameParams{
-				TournamentMatchID: int32(mg.matchID),
-				GameID:            mg.gameID,
-			}); err != nil {
-				return err
-			}
-		}
-
-		return nil
+	err = h.tournamentSvc.UpdateTournament(ctx, tournament.UpdateTournamentParams{
+		TournamentID: tournamentID,
+		DisplayName:  displayName,
+		SeedEntries:  seedEntries,
+		MatchGames:   matchGames,
 	})
 	if err != nil {
+		if errors.Is(err, game.ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound)
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
