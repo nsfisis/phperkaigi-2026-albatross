@@ -61,16 +61,26 @@ func main() {
 	}
 	slices.Sort(methods)
 
+	loginOptionalMethods := map[string]bool{
+		"GetGames":                 true,
+		"GetGame":                  true,
+		"GetGameWatchLatestStates": true,
+		"GetGameWatchRanking":      true,
+		"GetTournament":            true,
+	}
+
 	type TemplateParameter struct {
 		Name              string
 		RequiresLogin     bool
+		LoginOptional     bool
 		RequiresAdminRole bool
 	}
 	templateParameters := make([]TemplateParameter, len(methods))
 	for i, method := range methods {
 		templateParameters[i] = TemplateParameter{
 			Name:              method,
-			RequiresLogin:     method != "PostLogin",
+			RequiresLogin:     method != "PostLogin" && !loginOptionalMethods[method],
+			LoginOptional:     loginOptionalMethods[method],
 			RequiresAdminRole: strings.Contains(method, "Admin"),
 		}
 	}
@@ -143,6 +153,9 @@ func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth
 					}, nil
 				}
 			{{ end -}}
+			return h.impl.{{ .Name }}(ctx, request, user)
+		{{ else if .LoginOptional -}}
+			user, _ := GetUserFromContext(ctx)
 			return h.impl.{{ .Name }}(ctx, request, user)
 		{{ else -}}
 			return h.impl.{{ .Name }}(ctx, request)

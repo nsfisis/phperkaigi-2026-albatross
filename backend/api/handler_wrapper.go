@@ -28,12 +28,7 @@ func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth
 }
 
 func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObject) (GetGameResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
-	if !ok {
-		return GetGame401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+	user, _ := GetUserFromContext(ctx)
 	return h.impl.GetGame(ctx, request, user)
 }
 
@@ -58,32 +53,17 @@ func (h *HandlerWrapper) GetGamePlaySubmissions(ctx context.Context, request Get
 }
 
 func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
-	if !ok {
-		return GetGameWatchLatestStates401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+	user, _ := GetUserFromContext(ctx)
 	return h.impl.GetGameWatchLatestStates(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject) (GetGameWatchRankingResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
-	if !ok {
-		return GetGameWatchRanking401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+	user, _ := GetUserFromContext(ctx)
 	return h.impl.GetGameWatchRanking(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
-	if !ok {
-		return GetGames401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+	user, _ := GetUserFromContext(ctx)
 	return h.impl.GetGames(ctx, request, user)
 }
 
@@ -98,12 +78,7 @@ func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) 
 }
 
 func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
-	if !ok {
-		return GetTournament401JSONResponse{
-			Message: "Unauthorized",
-		}, nil
-	}
+	user, _ := GetUserFromContext(ctx)
 	return h.impl.GetTournament(ctx, request, user)
 }
 
