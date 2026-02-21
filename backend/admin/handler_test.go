@@ -358,7 +358,7 @@ func (m *mockQuerier) SyncGameStateBestScoreSubmission(ctx context.Context, arg 
 	return nil
 }
 
-// mockGameHub implements game.GameHubInterface for testing.
+// mockGameHub implements game.HubInterface for testing.
 type mockGameHub struct {
 	enqueueTestTasksFunc func(ctx context.Context, submissionID, gameID, userID int, language, code string) error
 }

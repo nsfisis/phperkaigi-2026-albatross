@@ -79,7 +79,7 @@ func TestStandardBracketSeeds_AllSeedsPresent(t *testing.T) {
 }
 
 func TestFindSeedByUserID(t *testing.T) {
-	entries := []TournamentEntry{
+	entries := []Entry{
 		{User: Player{UserID: 10}, Seed: 1},
 		{User: Player{UserID: 20}, Seed: 2},
 		{User: Player{UserID: 30}, Seed: 3},

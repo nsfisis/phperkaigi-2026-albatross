@@ -18,7 +18,7 @@ func toAPIUser(p game.Player) User {
 	}
 }
 
-func toAPIGame(g game.GameDetail) Game {
+func toAPIGame(g game.Detail) Game {
 	var startedAt *int64
 	if g.StartedAt != nil {
 		ts := g.StartedAt.Unix()
@@ -75,10 +75,10 @@ func toAPIRankingEntry(r game.RankingEntry) RankingEntry {
 		code = nullable.NewNullNullable[string]()
 	}
 	return RankingEntry{
-		Player: toAPIUser(r.Player),
-		Score:  r.Score,
+		Player:      toAPIUser(r.Player),
+		Score:       r.Score,
 		SubmittedAt: r.SubmittedAt,
-		Code:   code,
+		Code:        code,
 	}
 }
 
@@ -112,7 +112,7 @@ func toAPITournamentPlayerPtr(p *tournament.Player) *User {
 	return &u
 }
 
-func toAPITournament(t tournament.TournamentBracket) Tournament {
+func toAPITournament(t tournament.Bracket) Tournament {
 	entries := make([]TournamentEntry, len(t.Entries))
 	for i, e := range t.Entries {
 		entries[i] = TournamentEntry{

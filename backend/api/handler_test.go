@@ -132,7 +132,7 @@ func (m *mockTxManager) RunInTx(_ context.Context, fn func(q db.Querier) error) 
 	return fn(&mockQuerier{})
 }
 
-// mockGameHub implements game.GameHubInterface for testing.
+// mockGameHub implements game.HubInterface for testing.
 type mockGameHub struct {
 	calcCodeSizeResult int
 	enqueueErr         error

@@ -47,12 +47,12 @@ type Player struct {
 	Label       *string
 }
 
-type TournamentEntry struct {
+type Entry struct {
 	User Player
 	Seed int
 }
 
-type TournamentMatch struct {
+type Match struct {
 	TournamentMatchID int
 	Round             int
 	Position          int
@@ -65,13 +65,13 @@ type TournamentMatch struct {
 	IsBye             bool
 }
 
-type TournamentBracket struct {
+type Bracket struct {
 	TournamentID int
 	DisplayName  string
 	BracketSize  int
 	NumRounds    int
-	Entries      []TournamentEntry
-	Matches      []TournamentMatch
+	Entries      []Entry
+	Matches      []Match
 }
 
 // StandardBracketSeeds returns the seed assignments for each slot in a standard
@@ -90,7 +90,7 @@ func StandardBracketSeeds(bracketSize int) []int {
 	return seeds
 }
 
-func findSeedByUserID(entries []TournamentEntry, userID int) int {
+func findSeedByUserID(entries []Entry, userID int) int {
 	for _, e := range entries {
 		if e.User.UserID == userID {
 			return e.Seed
@@ -99,22 +99,22 @@ func findSeedByUserID(entries []TournamentEntry, userID int) int {
 	return 0
 }
 
-func (s *Service) GetTournament(ctx context.Context, tournamentID int) (TournamentBracket, error) {
+func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Bracket, error) {
 	t, err := s.q.GetTournamentByID(ctx, int32(tournamentID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return TournamentBracket{}, game.ErrNotFound
+			return Bracket{}, game.ErrNotFound
 		}
-		return TournamentBracket{}, err
+		return Bracket{}, err
 	}
 
 	entryRows, err := s.q.ListTournamentEntries(ctx, int32(tournamentID))
 	if err != nil {
-		return TournamentBracket{}, err
+		return Bracket{}, err
 	}
 
 	seedToUser := make(map[int]Player)
-	entries := make([]TournamentEntry, len(entryRows))
+	entries := make([]Entry, len(entryRows))
 	for i, e := range entryRows {
 		u := Player{
 			UserID:      int(e.UserID),
@@ -125,7 +125,7 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 			Label:       e.Label,
 		}
 		seedToUser[int(e.Seed)] = u
-		entries[i] = TournamentEntry{
+		entries[i] = Entry{
 			User: u,
 			Seed: int(e.Seed),
 		}
@@ -133,7 +133,7 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 
 	matchRows, err := s.q.ListTournamentMatches(ctx, int32(tournamentID))
 	if err != nil {
-		return TournamentBracket{}, err
+		return Bracket{}, err
 	}
 
 	bracketSize := int(t.BracketSize)
@@ -278,7 +278,7 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 	}
 
 	// Build response matches
-	apiMatches := make([]TournamentMatch, 0, len(matchRows))
+	apiMatches := make([]Match, 0, len(matchRows))
 	for round := 0; round < numRounds; round++ {
 		numPositions := bracketSize / (1 << (round + 1))
 		for pos := 0; pos < numPositions; pos++ {
@@ -295,7 +295,7 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 				}
 			}
 
-			apiMatches = append(apiMatches, TournamentMatch{
+			apiMatches = append(apiMatches, Match{
 				TournamentMatchID: matchID,
 				Round:             round,
 				Position:          pos,
@@ -310,7 +310,7 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Tourname
 		}
 	}
 
-	return TournamentBracket{
+	return Bracket{
 		TournamentID: int(t.TournamentID),
 		DisplayName:  t.DisplayName,
 		BracketSize:  bracketSize,
@@ -426,26 +426,26 @@ func (s *Service) UpdateTournament(ctx context.Context, params UpdateTournamentP
 	})
 }
 
-// TournamentEditData holds data needed for the tournament edit page.
-type TournamentEditData struct {
+// EditData holds data needed for the tournament edit page.
+type EditData struct {
 	Tournament  db.Tournament
 	SeedUserMap map[int]int
 	Matches     []db.TournamentMatch
 }
 
 // GetTournamentEditData retrieves the data needed for editing a tournament.
-func (s *Service) GetTournamentEditData(ctx context.Context, tournamentID int) (TournamentEditData, error) {
+func (s *Service) GetTournamentEditData(ctx context.Context, tournamentID int) (EditData, error) {
 	t, err := s.q.GetTournamentByID(ctx, int32(tournamentID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return TournamentEditData{}, game.ErrNotFound
+			return EditData{}, game.ErrNotFound
 		}
-		return TournamentEditData{}, err
+		return EditData{}, err
 	}
 
 	entryRows, err := s.q.ListTournamentEntries(ctx, int32(tournamentID))
 	if err != nil {
-		return TournamentEditData{}, err
+		return EditData{}, err
 	}
 	seedUserMap := make(map[int]int)
 	for _, e := range entryRows {
@@ -454,10 +454,10 @@ func (s *Service) GetTournamentEditData(ctx context.Context, tournamentID int) (
 
 	matchRows, err := s.q.ListTournamentMatches(ctx, int32(tournamentID))
 	if err != nil {
-		return TournamentEditData{}, err
+		return EditData{}, err
 	}
 
-	return TournamentEditData{
+	return EditData{
 		Tournament:  t,
 		SeedUserMap: seedUserMap,
 		Matches:     matchRows,

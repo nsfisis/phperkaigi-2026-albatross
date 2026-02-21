@@ -11,7 +11,7 @@ import (
 	"albatross-2026-backend/db"
 )
 
-type GameHubInterface interface {
+type HubInterface interface {
 	CalcCodeSize(code string, language string) int
 	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
 }
@@ -19,10 +19,10 @@ type GameHubInterface interface {
 type Service struct {
 	q   db.Querier
 	txm db.TxManager
-	hub GameHubInterface
+	hub HubInterface
 }
 
-func NewService(q db.Querier, txm db.TxManager, hub GameHubInterface) *Service {
+func NewService(q db.Querier, txm db.TxManager, hub HubInterface) *Service {
 	return &Service{q: q, txm: txm, hub: hub}
 }
 
@@ -45,7 +45,7 @@ type ProblemDetail struct {
 	SampleCode  string
 }
 
-type GameDetail struct {
+type Detail struct {
 	GameID          int
 	GameType        string
 	IsPublic        bool
@@ -108,13 +108,13 @@ func playerFromMainPlayerRow(row db.ListMainPlayersRow) Player {
 	}
 }
 
-func gameDetailFromPublicRow(row db.ListPublicGamesRow) GameDetail {
+func gameDetailFromPublicRow(row db.ListPublicGamesRow) Detail {
 	var startedAt *time.Time
 	if row.StartedAt.Valid {
 		t := row.StartedAt.Time
 		startedAt = &t
 	}
-	return GameDetail{
+	return Detail{
 		GameID:          int(row.GameID),
 		GameType:        row.GameType,
 		IsPublic:        row.IsPublic,
@@ -131,13 +131,13 @@ func gameDetailFromPublicRow(row db.ListPublicGamesRow) GameDetail {
 	}
 }
 
-func gameDetailFromGetRow(row db.GetGameByIDRow) GameDetail {
+func gameDetailFromGetRow(row db.GetGameByIDRow) Detail {
 	var startedAt *time.Time
 	if row.StartedAt.Valid {
 		t := row.StartedAt.Time
 		startedAt = &t
 	}
-	return GameDetail{
+	return Detail{
 		GameID:          int(row.GameID),
 		GameType:        row.GameType,
 		IsPublic:        row.IsPublic,
@@ -156,12 +156,12 @@ func gameDetailFromGetRow(row db.GetGameByIDRow) GameDetail {
 
 // Service methods
 
-func (s *Service) ListPublicGames(ctx context.Context) ([]GameDetail, error) {
+func (s *Service) ListPublicGames(ctx context.Context) ([]Detail, error) {
 	gameRows, err := s.q.ListPublicGames(ctx)
 	if err != nil {
 		return nil, err
 	}
-	games := make([]GameDetail, len(gameRows))
+	games := make([]Detail, len(gameRows))
 	gameIDs := make([]int32, len(gameRows))
 	gameID2Index := make(map[int32]int, len(gameRows))
 	for i, row := range gameRows {
@@ -180,21 +180,21 @@ func (s *Service) ListPublicGames(ctx context.Context) ([]GameDetail, error) {
 	return games, nil
 }
 
-func (s *Service) GetGameByID(ctx context.Context, gameID int, isAdmin bool) (GameDetail, error) {
+func (s *Service) GetGameByID(ctx context.Context, gameID int, isAdmin bool) (Detail, error) {
 	row, err := s.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return GameDetail{}, ErrNotFound
+			return Detail{}, ErrNotFound
 		}
-		return GameDetail{}, err
+		return Detail{}, err
 	}
 	if !row.IsPublic && !isAdmin {
-		return GameDetail{}, ErrNotFound
+		return Detail{}, ErrNotFound
 	}
 	game := gameDetailFromGetRow(row)
 	mainPlayerRows, err := s.q.ListMainPlayers(ctx, []int32{int32(gameID)})
 	if err != nil {
-		return GameDetail{}, err
+		return Detail{}, err
 	}
 	for _, playerRow := range mainPlayerRows {
 		game.MainPlayers = append(game.MainPlayers, playerFromMainPlayerRow(playerRow))
@@ -523,10 +523,7 @@ func (s *Service) FixSubmissionStatuses(ctx context.Context) error {
 		return err
 	}
 	for _, r := range gameStates {
-		if err := s.q.SyncGameStateBestScoreSubmission(ctx, db.SyncGameStateBestScoreSubmissionParams{
-			GameID: r.GameID,
-			UserID: r.UserID,
-		}); err != nil {
+		if err := s.q.SyncGameStateBestScoreSubmission(ctx, db.SyncGameStateBestScoreSubmissionParams(r)); err != nil {
 			return err
 		}
 	}
