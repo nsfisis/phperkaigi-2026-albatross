@@ -53,9 +53,7 @@ export default function App() {
 					{(params) => <GolfWatchPage gameId={params.gameId} />}
 				</Route>
 				<Route path="/tournament/:tournamentId">
-					{(params) => (
-						<TournamentPage tournamentId={params.tournamentId} />
-					)}
+					{(params) => <TournamentPage tournamentId={params.tournamentId} />}
 				</Route>
 				<Route>
 					<div className="min-h-screen bg-gray-100 flex items-center justify-center">
