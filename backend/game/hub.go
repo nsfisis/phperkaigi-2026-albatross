@@ -20,6 +20,8 @@ type TaskWorkerInterface interface {
 	Results() chan taskqueue.TaskResult
 }
 
+var whitespaceRe = regexp.MustCompile(`\s+`)
+
 type Hub struct {
 	q          db.Querier
 	txm        db.TxManager
@@ -50,8 +52,7 @@ func (hub *Hub) Run() {
 }
 
 func (hub *Hub) CalcCodeSize(code string, language string) int {
-	re := regexp.MustCompile(`\s+`)
-	trimmed := re.ReplaceAllString(code, "")
+	trimmed := whitespaceRe.ReplaceAllString(code, "")
 	if language == "php" {
 		return len(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(trimmed, "<?php"), "<?"), "?>"))
 	}
