@@ -117,6 +117,9 @@ import (
 
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
+	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 var _ StrictServerInterface = (*HandlerWrapper)(nil)
@@ -125,14 +128,14 @@ type HandlerWrapper struct {
 	impl Handler
 }
 
-func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth AuthenticatorInterface, conf *config.Config) *HandlerWrapper {
+func NewHandler(gameSvc *game.Service, tournamentSvc *tournament.Service, auth AuthenticatorInterface, queries db.Querier, conf *config.Config) *HandlerWrapper {
 	return &HandlerWrapper{
 		impl: Handler{
-			q:    queries,
-			txm:  txm,
-			hub:  hub,
-			auth: auth,
-			conf: conf,
+			gameSvc:       gameSvc,
+			tournamentSvc: tournamentSvc,
+			auth:          auth,
+			conf:          conf,
+			q:             queries,
 		},
 	}
 }
@@ -140,7 +143,7 @@ func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth
 {{ range . }}
 	func (h *HandlerWrapper) {{ .Name }}(ctx context.Context, request {{ .Name }}RequestObject) ({{ .Name }}ResponseObject, error) {
 		{{ if .RequiresLogin -}}
-			user, ok := GetUserFromContext(ctx)
+			user, ok := session.GetUserFromContext(ctx)
 			if !ok {
 				return {{ .Name }}401JSONResponse{
 					Message: "Unauthorized",
@@ -155,7 +158,7 @@ func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth
 			{{ end -}}
 			return h.impl.{{ .Name }}(ctx, request, user)
 		{{ else if .LoginOptional -}}
-			user, _ := GetUserFromContext(ctx)
+			user, _ := session.GetUserFromContext(ctx)
 			return h.impl.{{ .Name }}(ctx, request, user)
 		{{ else -}}
 			return h.impl.{{ .Name }}(ctx, request)

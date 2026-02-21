@@ -14,9 +14,9 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"albatross-2026-backend/account"
-	"albatross-2026-backend/api"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/session"
 )
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
@@ -39,7 +39,7 @@ func NewHandler(q db.Querier, txm db.TxManager, hub GameHub, conf *config.Config
 func (h *Handler) newAdminMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			user, ok := api.GetUserFromContext(c.Request().Context())
+			user, ok := session.GetUserFromContext(c.Request().Context())
 			if !ok {
 				return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"login")
 			}

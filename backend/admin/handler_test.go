@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 
-	"albatross-2026-backend/api"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/session"
 )
 
 // mockQuerier implements db.Querier for admin handler testing.
@@ -395,7 +395,7 @@ func newEchoContextWithForm(path string, params map[string]string, form url.Valu
 // --- Admin middleware tests ---
 
 func setUserInContext(c echo.Context, user *db.User) {
-	ctx := api.SetUserInContext(c.Request().Context(), user)
+	ctx := session.SetUserInContext(c.Request().Context(), user)
 	c.SetRequest(c.Request().WithContext(ctx))
 }
 

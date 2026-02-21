@@ -9,14 +9,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
-	"github.com/oapi-codegen/nullable"
 
 	"albatross-2026-backend/auth"
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
+	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 type AuthenticatorInterface interface {
@@ -24,16 +25,11 @@ type AuthenticatorInterface interface {
 }
 
 type Handler struct {
-	q    db.Querier
-	txm  db.TxManager
-	hub  GameHubInterface
-	auth AuthenticatorInterface
-	conf *config.Config
-}
-
-type GameHubInterface interface {
-	CalcCodeSize(code string, language string) int
-	EnqueueTestTasks(ctx context.Context, submissionID, gameID, userID int, language, code string) error
+	gameSvc       *game.Service
+	tournamentSvc *tournament.Service
+	auth          AuthenticatorInterface
+	conf          *config.Config
+	q             db.Querier // for session management (login/logout)
 }
 
 type postLoginCookieResponse struct {
@@ -51,7 +47,7 @@ func (r postLoginCookieResponse) VisitPostLoginResponse(w http.ResponseWriter) e
 func (h *Handler) PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error) {
 	username := request.Body.Username
 	password := request.Body.Password
-	ip := GetClientIPFromContext(ctx)
+	ip := session.GetClientIPFromContext(ctx)
 
 	userID, err := h.auth.Login(ctx, username, password)
 	if err != nil {
@@ -138,7 +134,7 @@ func (r postLogoutCookieResponse) VisitPostLogoutResponse(w http.ResponseWriter)
 }
 
 func (h *Handler) PostLogout(ctx context.Context, _ PostLogoutRequestObject, _ *db.User) (PostLogoutResponseObject, error) {
-	if sessionID, ok := GetSessionIDFromContext(ctx); ok {
+	if sessionID, ok := session.GetSessionIDFromContext(ctx); ok {
 		_ = h.q.DeleteSession(ctx, sessionID)
 	}
 	return postLogoutCookieResponse{
@@ -155,631 +151,125 @@ func (h *Handler) PostLogout(ctx context.Context, _ PostLogoutRequestObject, _ *
 }
 
 func (h *Handler) GetGames(ctx context.Context, _ GetGamesRequestObject, _ *db.User) (GetGamesResponseObject, error) {
-	gameRows, err := h.q.ListPublicGames(ctx)
+	games, err := h.gameSvc.ListPublicGames(ctx)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	games := make([]Game, len(gameRows))
-	gameIDs := make([]int32, len(gameRows))
-	gameID2Index := make(map[int32]int, len(gameRows))
-	for i, row := range gameRows {
-		var startedAt *int64
-		if row.StartedAt.Valid {
-			startedAtTimestamp := row.StartedAt.Time.Unix()
-			startedAt = &startedAtTimestamp
-		}
-		games[i] = Game{
-			GameID:          int(row.GameID),
-			GameType:        GameType(row.GameType),
-			IsPublic:        row.IsPublic,
-			DisplayName:     row.DisplayName,
-			DurationSeconds: int(row.DurationSeconds),
-			StartedAt:       startedAt,
-			Problem: Problem{
-				ProblemID:   int(row.ProblemID),
-				Title:       row.Title,
-				Description: row.Description,
-				Language:    ProblemLanguage(row.Language),
-				SampleCode:  row.SampleCode,
-			},
-		}
-		gameIDs[i] = row.GameID
-		gameID2Index[row.GameID] = i
+	apiGames := make([]Game, len(games))
+	for i, g := range games {
+		apiGames[i] = toAPIGame(g)
 	}
-	mainPlayerRows, err := h.q.ListMainPlayers(ctx, gameIDs)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	for _, row := range mainPlayerRows {
-		idx := gameID2Index[row.GameID]
-		game := &games[idx]
-		game.MainPlayers = append(game.MainPlayers, User{
-			UserID:      int(row.UserID),
-			Username:    row.Username,
-			DisplayName: row.DisplayName,
-			IconPath:    row.IconPath,
-			IsAdmin:     row.IsAdmin,
-			Label:       toNullable(row.Label),
-		})
-	}
-	return GetGames200JSONResponse{
-		Games: games,
-	}, nil
+	return GetGames200JSONResponse{Games: apiGames}, nil
 }
 
 func (h *Handler) GetGame(ctx context.Context, request GetGameRequestObject, user *db.User) (GetGameResponseObject, error) {
-	gameID := request.GameID
-	row, err := h.q.GetGameByID(ctx, int32(gameID))
+	isAdmin := user != nil && user.IsAdmin
+	g, err := h.gameSvc.GetGameByID(ctx, request.GameID, isAdmin)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return GetGame404JSONResponse{
-				Message: "Game not found",
-			}, nil
+		if errors.Is(err, game.ErrNotFound) {
+			return GetGame404JSONResponse{Message: "Game not found"}, nil
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if !row.IsPublic && (user == nil || !user.IsAdmin) {
-		return GetGame404JSONResponse{
-			Message: "Game not found",
-		}, nil
-	}
-	var startedAt *int64
-	if row.StartedAt.Valid {
-		startedAtTimestamp := row.StartedAt.Time.Unix()
-		startedAt = &startedAtTimestamp
-	}
-	mainPlayerRows, err := h.q.ListMainPlayers(ctx, []int32{int32(gameID)})
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	mainPlayers := make([]User, len(mainPlayerRows))
-	for i, playerRow := range mainPlayerRows {
-		mainPlayers[i] = User{
-			UserID:      int(playerRow.UserID),
-			Username:    playerRow.Username,
-			DisplayName: playerRow.DisplayName,
-			IconPath:    playerRow.IconPath,
-			IsAdmin:     playerRow.IsAdmin,
-			Label:       toNullable(playerRow.Label),
-		}
-	}
-	game := Game{
-		GameID:          int(row.GameID),
-		GameType:        GameType(row.GameType),
-		IsPublic:        row.IsPublic,
-		DisplayName:     row.DisplayName,
-		DurationSeconds: int(row.DurationSeconds),
-		StartedAt:       startedAt,
-		Problem: Problem{
-			ProblemID:   int(row.ProblemID),
-			Title:       row.Title,
-			Description: row.Description,
-			Language:    ProblemLanguage(row.Language),
-			SampleCode:  row.SampleCode,
-		},
-		MainPlayers: mainPlayers,
-	}
-	return GetGame200JSONResponse{
-		Game: game,
-	}, nil
+	return GetGame200JSONResponse{Game: toAPIGame(g)}, nil
 }
 
 func (h *Handler) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject, user *db.User) (GetGamePlayLatestStateResponseObject, error) {
-	gameID := request.GameID
-	row, err := h.q.GetLatestState(ctx, db.GetLatestStateParams{
-		GameID: int32(gameID),
-		UserID: user.UserID,
-	})
+	state, err := h.gameSvc.GetLatestState(ctx, request.GameID, user.UserID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return GetGamePlayLatestState200JSONResponse{
-				State: LatestGameState{
-					Code:                 "",
-					Score:                nullable.NewNullNullable[int](),
-					BestScoreSubmittedAt: nullable.NewNullNullable[int64](),
-					Status:               None,
-				},
-			}, nil
-		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return GetGamePlayLatestState200JSONResponse{
-		State: LatestGameState{
-			Code:                 row.Code,
-			Score:                toNullableWith(row.CodeSize, func(x int32) int { return int(x) }),
-			BestScoreSubmittedAt: nullable.NewNullableWithValue(row.CreatedAt.Time.Unix()),
-			Status:               ExecutionStatus(row.Status),
-		},
-	}, nil
+	return GetGamePlayLatestState200JSONResponse{State: toAPILatestState(state)}, nil
 }
 
 func (h *Handler) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject, user *db.User) (GetGameWatchLatestStatesResponseObject, error) {
-	gameID := request.GameID
-	rows, err := h.q.GetLatestStatesOfMainPlayers(ctx, int32(gameID))
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	var userID *int32
+	var isAdmin bool
+	if user != nil {
+		userID = &user.UserID
+		isAdmin = user.IsAdmin
 	}
-	states := make(map[string]LatestGameState, len(rows))
-	for _, row := range rows {
-		var code string
-		if row.Code != nil {
-			code = *row.Code
-		}
-		var status ExecutionStatus
-		if row.Status != nil {
-			status = ExecutionStatus(*row.Status)
-		} else {
-			status = None
-		}
-		states[strconv.Itoa(int(row.UserID))] = LatestGameState{
-			Code:                 code,
-			Score:                toNullableWith(row.CodeSize, func(x int32) int { return int(x) }),
-			BestScoreSubmittedAt: nullable.NewNullableWithValue(row.CreatedAt.Time.Unix()),
-			Status:               status,
-		}
-
-		if user != nil && row.UserID == user.UserID && !user.IsAdmin {
+	stateMap, err := h.gameSvc.GetWatchLatestStates(ctx, request.GameID, userID, isAdmin)
+	if err != nil {
+		if errors.Is(err, game.ErrForbidden) {
 			return GetGameWatchLatestStates403JSONResponse{
 				Message: "You are one of the main players of this game",
 			}, nil
 		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return GetGameWatchLatestStates200JSONResponse{
-		States: states,
-	}, nil
+	states := make(map[string]LatestGameState, len(stateMap))
+	for uid, s := range stateMap {
+		states[strconv.Itoa(uid)] = toAPILatestState(s)
+	}
+	return GetGameWatchLatestStates200JSONResponse{States: states}, nil
 }
 
 func (h *Handler) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject, _ *db.User) (GetGameWatchRankingResponseObject, error) {
-	gameID := request.GameID
-
-	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	ranking, _, err := h.gameSvc.GetRanking(ctx, request.GameID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return GetGameWatchRanking404JSONResponse{
-				Message: "Game not found",
-			}, nil
+		if errors.Is(err, game.ErrNotFound) {
+			return GetGameWatchRanking404JSONResponse{Message: "Game not found"}, nil
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	gameFinished := isGameFinished(gameRow)
-
-	rows, err := h.q.GetRanking(ctx, int32(gameID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return GetGameWatchRanking200JSONResponse{}, nil
-		}
+	apiRanking := make([]RankingEntry, len(ranking))
+	for i, r := range ranking {
+		apiRanking[i] = toAPIRankingEntry(r)
 	}
-	ranking := make([]RankingEntry, len(rows))
-	for i, row := range rows {
-		var code nullable.Nullable[string]
-		if gameFinished {
-			code = nullable.NewNullableWithValue(row.Submission.Code)
-		} else {
-			code = nullable.NewNullNullable[string]()
-		}
-		ranking[i] = RankingEntry{
-			Player: User{
-				UserID:      int(row.User.UserID),
-				Username:    row.User.Username,
-				DisplayName: row.User.DisplayName,
-				IconPath:    row.User.IconPath,
-				IsAdmin:     row.User.IsAdmin,
-				Label:       toNullable(row.User.Label),
-			},
-			Score:       int(row.Submission.CodeSize),
-			SubmittedAt: row.Submission.CreatedAt.Time.Unix(),
-			Code:        code,
-		}
-	}
-	return GetGameWatchRanking200JSONResponse{
-		Ranking: ranking,
-	}, nil
+	return GetGameWatchRanking200JSONResponse{Ranking: apiRanking}, nil
 }
 
 func (h *Handler) GetGamePlaySubmissions(ctx context.Context, request GetGamePlaySubmissionsRequestObject, user *db.User) (GetGamePlaySubmissionsResponseObject, error) {
-	gameID := request.GameID
-
-	_, err := h.q.GetGameByID(ctx, int32(gameID))
+	submissions, err := h.gameSvc.GetSubmissions(ctx, request.GameID, user.UserID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return GetGamePlaySubmissions404JSONResponse{
-				Message: "Game not found",
-			}, nil
+		if errors.Is(err, game.ErrNotFound) {
+			return GetGamePlaySubmissions404JSONResponse{Message: "Game not found"}, nil
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-	rows, err := h.q.GetSubmissionsByGameIDAndUserID(ctx, db.GetSubmissionsByGameIDAndUserIDParams{
-		GameID: int32(gameID),
-		UserID: user.UserID,
-	})
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	apiSubmissions := make([]Submission, len(submissions))
+	for i, s := range submissions {
+		apiSubmissions[i] = toAPISubmission(s)
 	}
-
-	submissions := make([]Submission, len(rows))
-	for i, row := range rows {
-		submissions[i] = Submission{
-			SubmissionID: int(row.SubmissionID),
-			GameID:       int(row.GameID),
-			Code:         row.Code,
-			CodeSize:     int(row.CodeSize),
-			Status:       ExecutionStatus(row.Status),
-			CreatedAt:    row.CreatedAt.Time.Unix(),
-		}
-	}
-
-	return GetGamePlaySubmissions200JSONResponse{
-		Submissions: submissions,
-	}, nil
+	return GetGamePlaySubmissions200JSONResponse{Submissions: apiSubmissions}, nil
 }
 
 func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *db.User) (PostGamePlayCodeResponseObject, error) {
-	gameID := request.GameID
-
-	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	err := h.gameSvc.SaveCode(ctx, request.GameID, user.UserID, request.Body.Code)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return PostGamePlayCode404JSONResponse{
-				Message: "Game not found",
-			}, nil
+		if errors.Is(err, game.ErrNotFound) {
+			return PostGamePlayCode404JSONResponse{Message: "Game not found"}, nil
 		}
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	if !isGameRunning(gameRow) {
-		return PostGamePlayCode403JSONResponse{
-			Message: "Game is not running",
-		}, nil
-	}
-
-	err = h.q.UpdateCode(ctx, db.UpdateCodeParams{
-		GameID: int32(gameID),
-		UserID: user.UserID,
-		Code:   request.Body.Code,
-		Status: "none",
-	})
-	if err != nil {
+		if errors.Is(err, game.ErrGameNotRunning) {
+			return PostGamePlayCode403JSONResponse{Message: "Game is not running"}, nil
+		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return PostGamePlayCode200Response{}, nil
 }
 
 func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject, user *db.User) (PostGamePlaySubmitResponseObject, error) {
-	gameID := request.GameID
-	code := request.Body.Code
-
-	gameRow, err := h.q.GetGameByID(ctx, int32(gameID))
+	err := h.gameSvc.SubmitCode(ctx, request.GameID, user.UserID, request.Body.Code)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return PostGamePlaySubmit404JSONResponse{}, nil
 		}
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	language := gameRow.Language
-	codeSize := h.hub.CalcCodeSize(code, language)
-
-	if !isGameRunning(gameRow) {
-		return PostGamePlaySubmit403JSONResponse{
-			Message: "Game is not running",
-		}, nil
-	}
-
-	var submissionID int32
-	err = h.txm.RunInTx(ctx, func(qtx db.Querier) error {
-		if err := qtx.UpdateCodeAndStatus(ctx, db.UpdateCodeAndStatusParams{
-			GameID: int32(gameID),
-			UserID: user.UserID,
-			Code:   code,
-			Status: "running",
-		}); err != nil {
-			return err
+		if errors.Is(err, game.ErrGameNotRunning) {
+			return PostGamePlaySubmit403JSONResponse{Message: "Game is not running"}, nil
 		}
-		var err error
-		submissionID, err = qtx.CreateSubmission(ctx, db.CreateSubmissionParams{
-			GameID:   int32(gameID),
-			UserID:   user.UserID,
-			Code:     code,
-			CodeSize: int32(codeSize),
-		})
-		return err
-	})
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	err = h.hub.EnqueueTestTasks(ctx, int(submissionID), gameID, int(user.UserID), language, code)
-	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return PostGamePlaySubmit200Response{}, nil
 }
 
 func (h *Handler) GetTournament(ctx context.Context, request GetTournamentRequestObject, _ *db.User) (GetTournamentResponseObject, error) {
-	tournamentID := int32(request.TournamentID)
-
-	tournament, err := h.q.GetTournamentByID(ctx, tournamentID)
+	t, err := h.tournamentSvc.GetTournament(ctx, request.TournamentID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, game.ErrNotFound) {
 			return GetTournament404JSONResponse{Message: "Tournament not found"}, nil
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-	entryRows, err := h.q.ListTournamentEntries(ctx, tournamentID)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	seedToUser := make(map[int]User)
-	entries := make([]TournamentEntry, len(entryRows))
-	for i, e := range entryRows {
-		u := User{
-			UserID:      int(e.UserID),
-			Username:    e.Username,
-			DisplayName: e.DisplayName,
-			IconPath:    e.IconPath,
-			IsAdmin:     e.IsAdmin,
-			Label:       toNullable(e.Label),
-		}
-		seedToUser[int(e.Seed)] = u
-		entries[i] = TournamentEntry{
-			User: u,
-			Seed: int(e.Seed),
-		}
-	}
-
-	matchRows, err := h.q.ListTournamentMatches(ctx, tournamentID)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	bracketSize := int(tournament.BracketSize)
-	numRounds := int(tournament.NumRounds)
-	bracketSeeds := standardBracketSeeds(bracketSize)
-
-	// Index matches by (round, position)
-	type matchKey struct{ round, position int }
-	matchByKey := make(map[matchKey]db.TournamentMatch)
-	for _, m := range matchRows {
-		matchByKey[matchKey{int(m.Round), int(m.Position)}] = m
-	}
-
-	// Collect game IDs for batch fetching
-	gameIDs := make(map[int32]bool)
-	for _, m := range matchRows {
-		if m.GameID != nil {
-			gameIDs[*m.GameID] = true
-		}
-	}
-
-	// Fetch rankings for all games that have started
-	type rankingResult struct {
-		scores   map[int]int // userID -> score
-		winnerID int
-	}
-	gameRankings := make(map[int32]*rankingResult)
-	for gid := range gameIDs {
-		gameRow, err := h.q.GetGameByID(ctx, gid)
-		if err != nil {
-			continue
-		}
-		if !gameRow.StartedAt.Valid {
-			continue
-		}
-		rankingRows, err := h.q.GetRanking(ctx, gid)
-		if err != nil || len(rankingRows) == 0 {
-			continue
-		}
-		rr := &rankingResult{scores: make(map[int]int)}
-		for i, r := range rankingRows {
-			rr.scores[int(r.User.UserID)] = int(r.Submission.CodeSize)
-			if i == 0 {
-				rr.winnerID = int(r.User.UserID)
-			}
-		}
-		gameRankings[gid] = rr
-	}
-
-	// Build match results bottom-up
-	type matchResult struct {
-		player1   *User
-		player2   *User
-		p1Score   *int
-		p2Score   *int
-		winnerUID *int
-		isBye     bool
-	}
-	resultByKey := make(map[matchKey]*matchResult)
-
-	for round := range numRounds {
-		numPositions := bracketSize / (1 << (round + 1))
-		for pos := range numPositions {
-			m, exists := matchByKey[matchKey{round, pos}]
-			mr := &matchResult{}
-
-			if round == 0 {
-				// First round: resolve players from bracket seeds
-				slot1 := pos * 2
-				slot2 := pos*2 + 1
-				seed1 := bracketSeeds[slot1]
-				seed2 := bracketSeeds[slot2]
-
-				if u, ok := seedToUser[seed1]; ok {
-					mr.player1 = &u
-				}
-				if u, ok := seedToUser[seed2]; ok {
-					mr.player2 = &u
-				}
-			} else {
-				// Later rounds: resolve from child match winners
-				child1 := resultByKey[matchKey{round - 1, pos * 2}]
-				child2 := resultByKey[matchKey{round - 1, pos*2 + 1}]
-
-				if child1 != nil && child1.winnerUID != nil {
-					if u, ok := seedToUser[findSeedByUserID(entries, *child1.winnerUID)]; ok {
-						mr.player1 = &u
-					}
-				}
-				if child2 != nil && child2.winnerUID != nil {
-					if u, ok := seedToUser[findSeedByUserID(entries, *child2.winnerUID)]; ok {
-						mr.player2 = &u
-					}
-				}
-			}
-
-			// Check for bye
-			if mr.player1 == nil && mr.player2 != nil {
-				mr.isBye = true
-				uid := mr.player2.UserID
-				mr.winnerUID = &uid
-			} else if mr.player1 != nil && mr.player2 == nil {
-				mr.isBye = true
-				uid := mr.player1.UserID
-				mr.winnerUID = &uid
-			}
-
-			// Resolve scores from game
-			if exists && m.GameID != nil && !mr.isBye {
-				if rr, ok := gameRankings[*m.GameID]; ok {
-					if mr.player1 != nil {
-						if s, ok := rr.scores[mr.player1.UserID]; ok {
-							score := s
-							mr.p1Score = &score
-						}
-					}
-					if mr.player2 != nil {
-						if s, ok := rr.scores[mr.player2.UserID]; ok {
-							score := s
-							mr.p2Score = &score
-						}
-					}
-					// Winner is the one with the best (lowest) score in the ranking
-					if mr.player1 != nil && mr.player2 != nil {
-						if rr.winnerID == mr.player1.UserID || rr.winnerID == mr.player2.UserID {
-							w := rr.winnerID
-							mr.winnerUID = &w
-						} else {
-							// Both players have scores; pick the one with lower score
-							if mr.p1Score != nil && mr.p2Score != nil {
-								if *mr.p1Score <= *mr.p2Score {
-									w := mr.player1.UserID
-									mr.winnerUID = &w
-								} else {
-									w := mr.player2.UserID
-									mr.winnerUID = &w
-								}
-							}
-						}
-					}
-				}
-			}
-
-			resultByKey[matchKey{round, pos}] = mr
-		}
-	}
-
-	// Build API response matches
-	apiMatches := make([]TournamentMatch, 0, len(matchRows))
-	for round := 0; round < numRounds; round++ {
-		numPositions := bracketSize / (1 << (round + 1))
-		for pos := 0; pos < numPositions; pos++ {
-			m, exists := matchByKey[matchKey{round, pos}]
-			mr := resultByKey[matchKey{round, pos}]
-
-			matchID := 0
-			var gameID *int
-			if exists {
-				matchID = int(m.TournamentMatchID)
-				if m.GameID != nil {
-					gid := int(*m.GameID)
-					gameID = &gid
-				}
-			}
-
-			apiMatches = append(apiMatches, TournamentMatch{
-				TournamentMatchID: matchID,
-				Round:             round,
-				Position:          pos,
-				GameID:            gameID,
-				Player1:           mr.player1,
-				Player2:           mr.player2,
-				Player1Score:      mr.p1Score,
-				Player2Score:      mr.p2Score,
-				WinnerUserID:      mr.winnerUID,
-				IsBye:             mr.isBye,
-			})
-		}
-	}
-
-	return GetTournament200JSONResponse{
-		Tournament: Tournament{
-			TournamentID: int(tournament.TournamentID),
-			DisplayName:  tournament.DisplayName,
-			BracketSize:  bracketSize,
-			NumRounds:    numRounds,
-			Entries:      entries,
-			Matches:      apiMatches,
-		},
-	}, nil
-}
-
-func findSeedByUserID(entries []TournamentEntry, userID int) int {
-	for _, e := range entries {
-		if e.User.UserID == userID {
-			return e.Seed
-		}
-	}
-	return 0
-}
-
-// standardBracketSeeds returns the seed assignments for each slot in a standard
-// single-elimination bracket. For bracket_size=8:
-// Position: [0]=1, [1]=8, [2]=5, [3]=4, [4]=3, [5]=6, [6]=7, [7]=2
-// This ensures Seed 1 vs Seed 2 are on opposite sides, and higher seeds face lower seeds.
-func standardBracketSeeds(bracketSize int) []int {
-	seeds := make([]int, bracketSize)
-	seeds[0] = 1
-	// Build the bracket by repeatedly splitting
-	for size := 2; size <= bracketSize; size *= 2 {
-		// For each pair in the current level, the new opponent for seed[i]
-		// is (size + 1 - seed[i])
-		temp := make([]int, size)
-		for i := 0; i < size/2; i++ {
-			temp[i*2] = seeds[i]
-			temp[i*2+1] = size + 1 - seeds[i]
-		}
-		copy(seeds, temp)
-	}
-	return seeds
-}
-
-func isGameRunning(game db.GetGameByIDRow) bool {
-	if !game.StartedAt.Valid {
-		return false
-	}
-	endTime := game.StartedAt.Time.Add(time.Duration(game.DurationSeconds) * time.Second)
-	return time.Now().Before(endTime)
-}
-
-func isGameFinished(game db.GetGameByIDRow) bool {
-	if !game.StartedAt.Valid {
-		return false
-	}
-	endTime := game.StartedAt.Time.Add(time.Duration(game.DurationSeconds) * time.Second)
-	return !time.Now().Before(endTime)
-}
-
-func toNullable[T any](p *T) nullable.Nullable[T] {
-	if p == nil {
-		return nullable.NewNullNullable[T]()
-	}
-	return nullable.NewNullableWithValue(*p)
-}
-
-func toNullableWith[T, U any](p *T, f func(T) U) nullable.Nullable[U] {
-	if p == nil {
-		return nullable.NewNullNullable[U]()
-	}
-	return nullable.NewNullableWithValue(f(*p))
+	return GetTournament200JSONResponse{Tournament: toAPITournament(t)}, nil
 }

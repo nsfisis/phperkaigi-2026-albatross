@@ -9,61 +9,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/session"
 )
-
-func TestGetSessionIDFromContext_NotSet(t *testing.T) {
-	ctx := context.Background()
-	_, ok := GetSessionIDFromContext(ctx)
-	if ok {
-		t.Error("expected ok=false when session ID is not set")
-	}
-}
-
-func TestGetSessionIDFromContext_Set(t *testing.T) {
-	ctx := context.WithValue(context.Background(), sessionIDContextKey{}, "abc123")
-	id, ok := GetSessionIDFromContext(ctx)
-	if !ok {
-		t.Fatal("expected ok=true when session ID is set")
-	}
-	if id != "abc123" {
-		t.Errorf("expected session ID 'abc123', got %q", id)
-	}
-}
-
-func TestGetUserFromContext_NotSet(t *testing.T) {
-	ctx := context.Background()
-	_, ok := GetUserFromContext(ctx)
-	if ok {
-		t.Error("expected ok=false when user is not set")
-	}
-}
-
-func TestGetUserFromContext_Set(t *testing.T) {
-	user := &db.User{UserID: 42, Username: "testuser"}
-	ctx := context.WithValue(context.Background(), userContextKey{}, user)
-	u, ok := GetUserFromContext(ctx)
-	if !ok {
-		t.Fatal("expected ok=true when user is set")
-	}
-	if u.UserID != 42 {
-		t.Errorf("expected user ID 42, got %d", u.UserID)
-	}
-	if u.Username != "testuser" {
-		t.Errorf("expected username 'testuser', got %q", u.Username)
-	}
-}
-
-func TestSetUserInContext(t *testing.T) {
-	user := &db.User{UserID: 7, Username: "admin"}
-	ctx := SetUserInContext(context.Background(), user)
-	u, ok := GetUserFromContext(ctx)
-	if !ok {
-		t.Fatal("expected ok=true after SetUserInContext")
-	}
-	if u.UserID != 7 {
-		t.Errorf("expected user ID 7, got %d", u.UserID)
-	}
-}
 
 // mockSessionQuerier implements the subset of db.Querier needed by SessionCookieMiddleware.
 type mockSessionQuerier struct {
@@ -89,7 +36,7 @@ func TestSessionCookieMiddleware_NoCookie(t *testing.T) {
 	handler := mw(func(c echo.Context) error {
 		called = true
 		// User should not be set
-		_, ok := GetUserFromContext(c.Request().Context())
+		_, ok := session.GetUserFromContext(c.Request().Context())
 		if ok {
 			t.Error("expected no user in context when no cookie is present")
 		}
@@ -122,14 +69,14 @@ func TestSessionCookieMiddleware_ValidSession(t *testing.T) {
 	var called bool
 	handler := mw(func(c echo.Context) error {
 		called = true
-		user, ok := GetUserFromContext(c.Request().Context())
+		user, ok := session.GetUserFromContext(c.Request().Context())
 		if !ok {
 			t.Fatal("expected user in context")
 		}
 		if user.UserID != 10 {
 			t.Errorf("expected user ID 10, got %d", user.UserID)
 		}
-		sid, ok := GetSessionIDFromContext(c.Request().Context())
+		sid, ok := session.GetSessionIDFromContext(c.Request().Context())
 		if !ok {
 			t.Fatal("expected session ID in context")
 		}
@@ -164,7 +111,7 @@ func TestSessionCookieMiddleware_InvalidSession(t *testing.T) {
 	var called bool
 	handler := mw(func(c echo.Context) error {
 		called = true
-		_, ok := GetUserFromContext(c.Request().Context())
+		_, ok := session.GetUserFromContext(c.Request().Context())
 		if ok {
 			t.Error("expected no user in context for invalid session")
 		}

@@ -24,6 +24,7 @@ import (
 	"albatross-2026-backend/game"
 	"albatross-2026-backend/ratelimit"
 	"albatross-2026-backend/taskqueue"
+	"albatross-2026-backend/tournament"
 )
 
 func connectDB(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
@@ -105,7 +106,9 @@ func main() {
 	apiGroup.Use(ratelimit.LoginRateLimitMiddleware(loginRL))
 	apiGroup.Use(api.SessionCookieMiddleware(queries))
 	apiGroup.Use(oapimiddleware.OapiRequestValidator(openAPISpec))
-	apiHandler := api.NewHandler(queries, txm, gameHub, authenticator, conf)
+	gameSvc := game.NewService(queries, txm, gameHub)
+	tournamentSvc := tournament.NewService(queries)
+	apiHandler := api.NewHandler(gameSvc, tournamentSvc, authenticator, queries, conf)
 	api.RegisterHandlers(apiGroup, api.NewStrictHandler(apiHandler, nil))
 
 	adminHandler := admin.NewHandler(queries, txm, gameHub, conf)

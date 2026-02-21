@@ -11,6 +11,9 @@ import (
 
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
+	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 // mockQuerier implements db.Querier for testing.
@@ -28,6 +31,7 @@ type mockQuerier struct {
 	listTournamentEntriesFunc           func(ctx context.Context, tournamentID int32) ([]db.ListTournamentEntriesRow, error)
 	listTournamentMatchesFunc           func(ctx context.Context, tournamentID int32) ([]db.TournamentMatch, error)
 	getSubmissionsByGameIDAndUserIDFunc func(ctx context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error)
+	getUserByIDFunc                     func(ctx context.Context, userID int32) (db.User, error)
 }
 
 func (m *mockQuerier) GetGameByID(ctx context.Context, gameID int32) (db.GetGameByIDRow, error) {
@@ -114,6 +118,13 @@ func (m *mockQuerier) ListTournamentMatches(ctx context.Context, tournamentID in
 	return nil, nil
 }
 
+func (m *mockQuerier) GetUserByID(ctx context.Context, userID int32) (db.User, error) {
+	if m.getUserByIDFunc != nil {
+		return m.getUserByIDFunc(ctx, userID)
+	}
+	return db.User{}, pgx.ErrNoRows
+}
+
 // mockTxManager implements db.TxManager for testing.
 type mockTxManager struct{}
 
@@ -121,7 +132,7 @@ func (m *mockTxManager) RunInTx(_ context.Context, fn func(q db.Querier) error) 
 	return fn(&mockQuerier{})
 }
 
-// mockGameHub implements GameHubInterface for testing.
+// mockGameHub implements game.GameHubInterface for testing.
 type mockGameHub struct {
 	calcCodeSizeResult int
 	enqueueErr         error
@@ -145,14 +156,29 @@ func (m *mockAuthenticator) Login(_ context.Context, _, _ string) (int, error) {
 	return m.loginResult, m.loginErr
 }
 
-func TestGetGamePlaySubmissions_GameNotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
+func newTestHandler(q *mockQuerier) Handler {
+	hub := &mockGameHub{}
+	return Handler{
+		gameSvc:       game.NewService(q, &mockTxManager{}, hub),
+		tournamentSvc: tournament.NewService(q),
+		auth:          &mockAuthenticator{},
+		conf:          &config.Config{},
+		q:             q,
 	}
+}
+
+func newTestHandlerWithHub(q *mockQuerier, hub *mockGameHub) Handler {
+	return Handler{
+		gameSvc:       game.NewService(q, &mockTxManager{}, hub),
+		tournamentSvc: tournament.NewService(q),
+		auth:          &mockAuthenticator{},
+		conf:          &config.Config{},
+		q:             q,
+	}
+}
+
+func TestGetGamePlaySubmissions_GameNotFound(t *testing.T) {
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
 		GameID: 999,
@@ -166,20 +192,14 @@ func TestGetGamePlaySubmissions_GameNotFound(t *testing.T) {
 }
 
 func TestGetGamePlaySubmissions_Empty(t *testing.T) {
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:   1,
-					Language: "php",
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:   1,
+				Language: "php",
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
 		GameID: 1,
@@ -198,45 +218,39 @@ func TestGetGamePlaySubmissions_Empty(t *testing.T) {
 
 func TestGetGamePlaySubmissions_WithSubmissions(t *testing.T) {
 	now := time.Now()
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:   1,
-					Language: "php",
-				}, nil
-			},
-			getSubmissionsByGameIDAndUserIDFunc: func(_ context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error) {
-				if arg.GameID != 1 || arg.UserID != 42 {
-					t.Errorf("unexpected query params: game_id=%d, user_id=%d", arg.GameID, arg.UserID)
-				}
-				return []db.Submission{
-					{
-						SubmissionID: 10,
-						GameID:       1,
-						UserID:       42,
-						Code:         "<?php echo 1;",
-						CodeSize:     14,
-						Status:       "success",
-						CreatedAt:    pgtype.Timestamp{Time: now, Valid: true},
-					},
-					{
-						SubmissionID: 9,
-						GameID:       1,
-						UserID:       42,
-						Code:         "<?php echo 'hello';",
-						CodeSize:     20,
-						Status:       "wrong_answer",
-						CreatedAt:    pgtype.Timestamp{Time: now.Add(-5 * time.Minute), Valid: true},
-					},
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:   1,
+				Language: "php",
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		getSubmissionsByGameIDAndUserIDFunc: func(_ context.Context, arg db.GetSubmissionsByGameIDAndUserIDParams) ([]db.Submission, error) {
+			if arg.GameID != 1 || arg.UserID != 42 {
+				t.Errorf("unexpected query params: game_id=%d, user_id=%d", arg.GameID, arg.UserID)
+			}
+			return []db.Submission{
+				{
+					SubmissionID: 10,
+					GameID:       1,
+					UserID:       42,
+					Code:         "<?php echo 1;",
+					CodeSize:     14,
+					Status:       "success",
+					CreatedAt:    pgtype.Timestamp{Time: now, Valid: true},
+				},
+				{
+					SubmissionID: 9,
+					GameID:       1,
+					UserID:       42,
+					Code:         "<?php echo 'hello';",
+					CodeSize:     20,
+					Status:       "wrong_answer",
+					CreatedAt:    pgtype.Timestamp{Time: now.Add(-5 * time.Minute), Valid: true},
+				},
+			}, nil
+		},
+	})
 	user := &db.User{UserID: 42}
 	resp, err := h.GetGamePlaySubmissions(context.Background(), GetGamePlaySubmissionsRequestObject{
 		GameID: 1,
@@ -282,13 +296,7 @@ func TestGetGamePlaySubmissions_WithSubmissions(t *testing.T) {
 }
 
 func TestPostGamePlaySubmit_GameNotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.PostGamePlaySubmit(context.Background(), PostGamePlaySubmitRequestObject{
 		GameID: 999,
@@ -303,23 +311,17 @@ func TestPostGamePlaySubmit_GameNotFound(t *testing.T) {
 }
 
 func TestPostGamePlaySubmit_GameNotRunning(t *testing.T) {
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:   1,
-					Language: "php",
-					StartedAt: pgtype.Timestamp{
-						Valid: false,
-					},
-				}, nil
-			},
+	h := newTestHandlerWithHub(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:   1,
+				Language: "php",
+				StartedAt: pgtype.Timestamp{
+					Valid: false,
+				},
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{calcCodeSizeResult: 10},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	}, &mockGameHub{calcCodeSizeResult: 10})
 	user := &db.User{UserID: 1}
 	resp, err := h.PostGamePlaySubmit(context.Background(), PostGamePlaySubmitRequestObject{
 		GameID: 1,
@@ -335,121 +337,8 @@ func TestPostGamePlaySubmit_GameNotRunning(t *testing.T) {
 	}
 }
 
-func TestIsGameRunning(t *testing.T) {
-	now := time.Now()
-	tests := []struct {
-		name string
-		game db.GetGameByIDRow
-		want bool
-	}{
-		{
-			name: "not started",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Valid: false},
-				DurationSeconds: 300,
-			},
-			want: false,
-		},
-		{
-			name: "running",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Time: now.Add(-1 * time.Minute), Valid: true},
-				DurationSeconds: 300,
-			},
-			want: true,
-		},
-		{
-			name: "finished",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Time: now.Add(-10 * time.Minute), Valid: true},
-				DurationSeconds: 300,
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isGameRunning(tt.game)
-			if got != tt.want {
-				t.Errorf("isGameRunning() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsGameFinished(t *testing.T) {
-	now := time.Now()
-	tests := []struct {
-		name string
-		game db.GetGameByIDRow
-		want bool
-	}{
-		{
-			name: "not started",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Valid: false},
-				DurationSeconds: 300,
-			},
-			want: false,
-		},
-		{
-			name: "still running",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Time: now.Add(-1 * time.Minute), Valid: true},
-				DurationSeconds: 300,
-			},
-			want: false,
-		},
-		{
-			name: "finished",
-			game: db.GetGameByIDRow{
-				StartedAt:       pgtype.Timestamp{Time: now.Add(-10 * time.Minute), Valid: true},
-				DurationSeconds: 300,
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isGameFinished(tt.game)
-			if got != tt.want {
-				t.Errorf("isGameFinished() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestToNullable(t *testing.T) {
-	t.Run("nil value", func(t *testing.T) {
-		result := toNullable[string](nil)
-		if !result.IsNull() {
-			t.Error("expected null for nil input")
-		}
-	})
-	t.Run("non-nil value", func(t *testing.T) {
-		s := "hello"
-		result := toNullable(&s)
-		if result.IsNull() {
-			t.Error("expected non-null for non-nil input")
-		}
-		v, err := result.Get()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if v != "hello" {
-			t.Errorf("expected 'hello', got %q", v)
-		}
-	})
-}
-
 func TestGetMe(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{
 		UserID:      1,
 		Username:    "testuser",
@@ -476,13 +365,7 @@ func TestGetMe(t *testing.T) {
 }
 
 func TestGetGame_NotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGame(context.Background(), GetGameRequestObject{GameID: 999}, user)
 	if err != nil {
@@ -494,21 +377,15 @@ func TestGetGame_NotFound(t *testing.T) {
 }
 
 func TestGetGame_NonPublicAsNonAdmin(t *testing.T) {
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:   1,
-					IsPublic: false,
-					Language: "php",
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:   1,
+				IsPublic: false,
+				Language: "php",
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	})
 	user := &db.User{UserID: 1, IsAdmin: false}
 	resp, err := h.GetGame(context.Background(), GetGameRequestObject{GameID: 1}, user)
 	if err != nil {
@@ -521,34 +398,28 @@ func TestGetGame_NonPublicAsNonAdmin(t *testing.T) {
 
 func TestGetGame_PublicGameSuccess(t *testing.T) {
 	now := time.Now()
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:          1,
-					IsPublic:        true,
-					Language:        "php",
-					DisplayName:     "Test Game",
-					DurationSeconds: 300,
-					StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
-					GameType:        "golf",
-					ProblemID:       10,
-					Title:           "Test Problem",
-					Description:     "desc",
-					SampleCode:      "<?php",
-				}, nil
-			},
-			listMainPlayersFunc: func(_ context.Context, _ []int32) ([]db.ListMainPlayersRow, error) {
-				return []db.ListMainPlayersRow{
-					{UserID: 1, Username: "player1", DisplayName: "Player 1", IsAdmin: false},
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:          1,
+				IsPublic:        true,
+				Language:        "php",
+				DisplayName:     "Test Game",
+				DurationSeconds: 300,
+				StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
+				GameType:        "golf",
+				ProblemID:       10,
+				Title:           "Test Problem",
+				Description:     "desc",
+				SampleCode:      "<?php",
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		listMainPlayersFunc: func(_ context.Context, _ []int32) ([]db.ListMainPlayersRow, error) {
+			return []db.ListMainPlayersRow{
+				{UserID: 1, Username: "player1", DisplayName: "Player 1", IsAdmin: false},
+			}, nil
+		},
+	})
 	user := &db.User{UserID: 1, IsAdmin: false}
 	resp, err := h.GetGame(context.Background(), GetGameRequestObject{GameID: 1}, user)
 	if err != nil {
@@ -571,11 +442,11 @@ func TestGetGame_PublicGameSuccess(t *testing.T) {
 
 func TestPostLogin_AuthFailure(t *testing.T) {
 	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{loginErr: errors.New("invalid credentials")},
-		conf: &config.Config{},
+		gameSvc:       game.NewService(&mockQuerier{}, &mockTxManager{}, &mockGameHub{}),
+		tournamentSvc: tournament.NewService(&mockQuerier{}),
+		auth:          &mockAuthenticator{loginErr: errors.New("invalid credentials")},
+		conf:          &config.Config{},
+		q:             &mockQuerier{},
 	}
 	resp, err := h.PostLogin(context.Background(), PostLoginRequestObject{
 		Body: &PostLoginJSONRequestBody{Username: "user", Password: "wrong"},
@@ -590,15 +461,14 @@ func TestPostLogin_AuthFailure(t *testing.T) {
 
 func TestPostLogout(t *testing.T) {
 	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{BasePath: "/"},
+		gameSvc:       game.NewService(&mockQuerier{}, &mockTxManager{}, &mockGameHub{}),
+		tournamentSvc: tournament.NewService(&mockQuerier{}),
+		auth:          &mockAuthenticator{},
+		conf:          &config.Config{BasePath: "/"},
+		q:             &mockQuerier{},
 	}
 	user := &db.User{UserID: 1}
-	// Set session ID in context
-	ctx := context.WithValue(context.Background(), sessionIDContextKey{}, "hashed-session")
+	ctx := session.SetSessionIDInContext(context.Background(), "hashed-session")
 	resp, err := h.PostLogout(ctx, PostLogoutRequestObject{}, user)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -609,13 +479,7 @@ func TestPostLogout(t *testing.T) {
 }
 
 func TestGetGames_Empty(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGames(context.Background(), GetGamesRequestObject{}, user)
 	if err != nil {
@@ -632,34 +496,28 @@ func TestGetGames_Empty(t *testing.T) {
 
 func TestGetGames_WithGames(t *testing.T) {
 	now := time.Now()
-	h := Handler{
-		q: &mockQuerier{
-			listPublicGamesFunc: func(_ context.Context) ([]db.ListPublicGamesRow, error) {
-				return []db.ListPublicGamesRow{
-					{
-						GameID:          1,
-						GameType:        "golf",
-						IsPublic:        true,
-						DisplayName:     "Game 1",
-						DurationSeconds: 300,
-						StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
-						ProblemID:       10,
-						Title:           "Problem 1",
-						Description:     "desc",
-						Language:        "php",
-						SampleCode:      "<?php",
-					},
-				}, nil
-			},
-			listMainPlayersFunc: func(_ context.Context, _ []int32) ([]db.ListMainPlayersRow, error) {
-				return nil, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		listPublicGamesFunc: func(_ context.Context) ([]db.ListPublicGamesRow, error) {
+			return []db.ListPublicGamesRow{
+				{
+					GameID:          1,
+					GameType:        "golf",
+					IsPublic:        true,
+					DisplayName:     "Game 1",
+					DurationSeconds: 300,
+					StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
+					ProblemID:       10,
+					Title:           "Problem 1",
+					Description:     "desc",
+					Language:        "php",
+					SampleCode:      "<?php",
+				},
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		listMainPlayersFunc: func(_ context.Context, _ []int32) ([]db.ListMainPlayersRow, error) {
+			return nil, nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGames(context.Background(), GetGamesRequestObject{}, user)
 	if err != nil {
@@ -681,13 +539,7 @@ func TestGetGames_WithGames(t *testing.T) {
 }
 
 func TestGetGamePlayLatestState_NoState(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGamePlayLatestState(context.Background(), GetGamePlayLatestStateRequestObject{GameID: 1}, user)
 	if err != nil {
@@ -706,13 +558,7 @@ func TestGetGamePlayLatestState_NoState(t *testing.T) {
 }
 
 func TestPostGamePlayCode_GameNotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.PostGamePlayCode(context.Background(), PostGamePlayCodeRequestObject{
 		GameID: 999,
@@ -727,23 +573,17 @@ func TestPostGamePlayCode_GameNotFound(t *testing.T) {
 }
 
 func TestPostGamePlayCode_GameNotRunning(t *testing.T) {
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:   1,
-					Language: "php",
-					StartedAt: pgtype.Timestamp{
-						Valid: false,
-					},
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:   1,
+				Language: "php",
+				StartedAt: pgtype.Timestamp{
+					Valid: false,
+				},
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.PostGamePlayCode(context.Background(), PostGamePlayCodeRequestObject{
 		GameID: 1,
@@ -760,26 +600,20 @@ func TestPostGamePlayCode_GameNotRunning(t *testing.T) {
 func TestPostGamePlayCode_Success(t *testing.T) {
 	now := time.Now()
 	var updatedCode string
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:          1,
-					Language:        "php",
-					StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
-					DurationSeconds: 600,
-				}, nil
-			},
-			updateCodeFunc: func(_ context.Context, arg db.UpdateCodeParams) error {
-				updatedCode = arg.Code
-				return nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:          1,
+				Language:        "php",
+				StartedAt:       pgtype.Timestamp{Time: now, Valid: true},
+				DurationSeconds: 600,
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		updateCodeFunc: func(_ context.Context, arg db.UpdateCodeParams) error {
+			updatedCode = arg.Code
+			return nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.PostGamePlayCode(context.Background(), PostGamePlayCodeRequestObject{
 		GameID: 1,
@@ -797,13 +631,7 @@ func TestPostGamePlayCode_Success(t *testing.T) {
 }
 
 func TestGetGameWatchRanking_NotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGameWatchRanking(context.Background(), GetGameWatchRankingRequestObject{GameID: 999}, user)
 	if err != nil {
@@ -816,25 +644,19 @@ func TestGetGameWatchRanking_NotFound(t *testing.T) {
 
 func TestGetGameWatchRanking_EmptyRanking(t *testing.T) {
 	now := time.Now()
-	h := Handler{
-		q: &mockQuerier{
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:          1,
-					Language:        "php",
-					StartedAt:       pgtype.Timestamp{Time: now.Add(-10 * time.Minute), Valid: true},
-					DurationSeconds: 300,
-				}, nil
-			},
-			getRankingFunc: func(_ context.Context, _ int32) ([]db.GetRankingRow, error) {
-				return nil, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:          1,
+				Language:        "php",
+				StartedAt:       pgtype.Timestamp{Time: now.Add(-10 * time.Minute), Valid: true},
+				DurationSeconds: 300,
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		getRankingFunc: func(_ context.Context, _ int32) ([]db.GetRankingRow, error) {
+			return nil, nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGameWatchRanking(context.Background(), GetGameWatchRankingRequestObject{GameID: 1}, user)
 	if err != nil {
@@ -850,13 +672,7 @@ func TestGetGameWatchRanking_EmptyRanking(t *testing.T) {
 }
 
 func TestGetGameWatchLatestStates_Empty(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGameWatchLatestStates(context.Background(), GetGameWatchLatestStatesRequestObject{GameID: 1}, user)
 	if err != nil {
@@ -869,6 +685,29 @@ func TestGetGameWatchLatestStates_Empty(t *testing.T) {
 	if len(okResp.States) != 0 {
 		t.Errorf("expected 0 states, got %d", len(okResp.States))
 	}
+}
+
+func TestToNullable(t *testing.T) {
+	t.Run("nil value", func(t *testing.T) {
+		result := toNullable[string](nil)
+		if !result.IsNull() {
+			t.Error("expected null for nil input")
+		}
+	})
+	t.Run("non-nil value", func(t *testing.T) {
+		s := "hello"
+		result := toNullable(&s)
+		if result.IsNull() {
+			t.Error("expected non-null for non-nil input")
+		}
+		v, err := result.Get()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if v != "hello" {
+			t.Errorf("expected 'hello', got %q", v)
+		}
+	})
 }
 
 func TestToNullableWith(t *testing.T) {
@@ -896,109 +735,8 @@ func TestToNullableWith(t *testing.T) {
 
 // --- Tournament tests ---
 
-func TestStandardBracketSeeds(t *testing.T) {
-	tests := []struct {
-		name        string
-		bracketSize int
-		expected    []int
-	}{
-		{
-			name:        "bracket_size=2",
-			bracketSize: 2,
-			expected:    []int{1, 2},
-		},
-		{
-			name:        "bracket_size=4",
-			bracketSize: 4,
-			expected:    []int{1, 4, 2, 3},
-		},
-		{
-			name:        "bracket_size=8",
-			bracketSize: 8,
-			expected:    []int{1, 8, 4, 5, 2, 7, 3, 6},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := standardBracketSeeds(tt.bracketSize)
-			if len(got) != len(tt.expected) {
-				t.Fatalf("expected length %d, got %d", len(tt.expected), len(got))
-			}
-			for i, v := range tt.expected {
-				if got[i] != v {
-					t.Errorf("position %d: expected seed %d, got %d", i, v, got[i])
-				}
-			}
-		})
-	}
-}
-
-func TestStandardBracketSeeds_Seed1And2OppositeSides(t *testing.T) {
-	seeds := standardBracketSeeds(8)
-	// Seed 1 should be in the first half, Seed 2 in the second half
-	seed1Pos := -1
-	seed2Pos := -1
-	for i, s := range seeds {
-		if s == 1 {
-			seed1Pos = i
-		}
-		if s == 2 {
-			seed2Pos = i
-		}
-	}
-	if seed1Pos >= 4 {
-		t.Errorf("Seed 1 should be in first half, but at position %d", seed1Pos)
-	}
-	if seed2Pos < 4 {
-		t.Errorf("Seed 2 should be in second half, but at position %d", seed2Pos)
-	}
-}
-
-func TestStandardBracketSeeds_AllSeedsPresent(t *testing.T) {
-	for _, size := range []int{2, 4, 8, 16} {
-		seeds := standardBracketSeeds(size)
-		seen := make(map[int]bool)
-		for _, s := range seeds {
-			if s < 1 || s > size {
-				t.Errorf("bracket_size=%d: seed %d out of range", size, s)
-			}
-			if seen[s] {
-				t.Errorf("bracket_size=%d: duplicate seed %d", size, s)
-			}
-			seen[s] = true
-		}
-		if len(seen) != size {
-			t.Errorf("bracket_size=%d: expected %d unique seeds, got %d", size, size, len(seen))
-		}
-	}
-}
-
-func TestFindSeedByUserID(t *testing.T) {
-	entries := []TournamentEntry{
-		{User: User{UserID: 10}, Seed: 1},
-		{User: User{UserID: 20}, Seed: 2},
-		{User: User{UserID: 30}, Seed: 3},
-	}
-
-	if got := findSeedByUserID(entries, 10); got != 1 {
-		t.Errorf("expected seed 1 for user 10, got %d", got)
-	}
-	if got := findSeedByUserID(entries, 20); got != 2 {
-		t.Errorf("expected seed 2 for user 20, got %d", got)
-	}
-	if got := findSeedByUserID(entries, 999); got != 0 {
-		t.Errorf("expected seed 0 for unknown user, got %d", got)
-	}
-}
-
 func TestGetTournament_NotFound(t *testing.T) {
-	h := Handler{
-		q:    &mockQuerier{},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	h := newTestHandler(&mockQuerier{})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 999}, user)
 	if err != nil {
@@ -1010,22 +748,16 @@ func TestGetTournament_NotFound(t *testing.T) {
 }
 
 func TestGetTournament_Success_NoEntries(t *testing.T) {
-	h := Handler{
-		q: &mockQuerier{
-			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
-				return db.Tournament{
-					TournamentID: 1,
-					DisplayName:  "Test Tournament",
-					BracketSize:  4,
-					NumRounds:    2,
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+			return db.Tournament{
+				TournamentID: 1,
+				DisplayName:  "Test Tournament",
+				BracketSize:  4,
+				NumRounds:    2,
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
 	if err != nil {
@@ -1051,42 +783,36 @@ func TestGetTournament_Success_NoEntries(t *testing.T) {
 
 func TestGetTournament_WithEntriesAndMatches(t *testing.T) {
 	gameID := int32(10)
-	h := Handler{
-		q: &mockQuerier{
-			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
-				return db.Tournament{
-					TournamentID: 1,
-					DisplayName:  "Test",
-					BracketSize:  4,
-					NumRounds:    2,
-				}, nil
-			},
-			listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
-				return []db.ListTournamentEntriesRow{
-					{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice", IsAdmin: false},
-					{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob", IsAdmin: false},
-					{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol", IsAdmin: false},
-				}, nil
-			},
-			listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
-				return []db.TournamentMatch{
-					{TournamentMatchID: 1, TournamentID: 1, Round: 0, Position: 0, GameID: &gameID},
-					{TournamentMatchID: 2, TournamentID: 1, Round: 0, Position: 1, GameID: nil},
-					{TournamentMatchID: 3, TournamentID: 1, Round: 1, Position: 0, GameID: nil},
-				}, nil
-			},
-			getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
-				return db.GetGameByIDRow{
-					GameID:    10,
-					StartedAt: pgtype.Timestamp{Valid: false},
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+			return db.Tournament{
+				TournamentID: 1,
+				DisplayName:  "Test",
+				BracketSize:  4,
+				NumRounds:    2,
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
+			return []db.ListTournamentEntriesRow{
+				{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice", IsAdmin: false},
+				{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob", IsAdmin: false},
+				{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol", IsAdmin: false},
+			}, nil
+		},
+		listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
+			return []db.TournamentMatch{
+				{TournamentMatchID: 1, TournamentID: 1, Round: 0, Position: 0, GameID: &gameID},
+				{TournamentMatchID: 2, TournamentID: 1, Round: 0, Position: 1, GameID: nil},
+				{TournamentMatchID: 3, TournamentID: 1, Round: 1, Position: 0, GameID: nil},
+			}, nil
+		},
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:    10,
+				StartedAt: pgtype.Timestamp{Valid: false},
+			}, nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
 	if err != nil {
@@ -1097,17 +823,14 @@ func TestGetTournament_WithEntriesAndMatches(t *testing.T) {
 		t.Fatalf("expected 200 response, got %T", resp)
 	}
 
-	// Check entries
 	if len(okResp.Tournament.Entries) != 3 {
 		t.Fatalf("expected 3 entries, got %d", len(okResp.Tournament.Entries))
 	}
 
-	// Check matches: bracket_size=4, num_rounds=2 → round 0: 2 matches, round 1: 1 match
 	if len(okResp.Tournament.Matches) != 3 {
 		t.Fatalf("expected 3 matches, got %d", len(okResp.Tournament.Matches))
 	}
 
-	// Round 0, Position 0: Seed 1 (Alice) vs Seed 4 (bye)
 	m0 := okResp.Tournament.Matches[0]
 	if m0.Round != 0 || m0.Position != 0 {
 		t.Errorf("match 0: expected round=0, pos=0, got round=%d, pos=%d", m0.Round, m0.Position)
@@ -1125,7 +848,6 @@ func TestGetTournament_WithEntriesAndMatches(t *testing.T) {
 		t.Error("match 0: expected winner to be Alice (user_id=100)")
 	}
 
-	// Round 0, Position 1: Seed 2 (Bob) vs Seed 3 (Carol)
 	m1 := okResp.Tournament.Matches[1]
 	if m1.Round != 0 || m1.Position != 1 {
 		t.Errorf("match 1: expected round=0, pos=1, got round=%d, pos=%d", m1.Round, m1.Position)
@@ -1142,38 +864,30 @@ func TestGetTournament_WithEntriesAndMatches(t *testing.T) {
 }
 
 func TestGetTournament_ByeAutoWinner(t *testing.T) {
-	// 3 players in bracket_size=4: seed 4 is empty → round 0, pos 0 is a bye
-	// The bye winner should propagate to round 1
-	h := Handler{
-		q: &mockQuerier{
-			getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
-				return db.Tournament{
-					TournamentID: 1,
-					DisplayName:  "Bye Test",
-					BracketSize:  4,
-					NumRounds:    2,
-				}, nil
-			},
-			listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
-				return []db.ListTournamentEntriesRow{
-					{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice"},
-					{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob"},
-					{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol"},
-				}, nil
-			},
-			listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
-				return []db.TournamentMatch{
-					{TournamentMatchID: 1, Round: 0, Position: 0},
-					{TournamentMatchID: 2, Round: 0, Position: 1},
-					{TournamentMatchID: 3, Round: 1, Position: 0},
-				}, nil
-			},
+	h := newTestHandler(&mockQuerier{
+		getTournamentByIDFunc: func(_ context.Context, _ int32) (db.Tournament, error) {
+			return db.Tournament{
+				TournamentID: 1,
+				DisplayName:  "Bye Test",
+				BracketSize:  4,
+				NumRounds:    2,
+			}, nil
 		},
-		txm:  &mockTxManager{},
-		hub:  &mockGameHub{},
-		auth: &mockAuthenticator{},
-		conf: &config.Config{},
-	}
+		listTournamentEntriesFunc: func(_ context.Context, _ int32) ([]db.ListTournamentEntriesRow, error) {
+			return []db.ListTournamentEntriesRow{
+				{Seed: 1, UserID: 100, Username: "alice", DisplayName: "Alice"},
+				{Seed: 2, UserID: 200, Username: "bob", DisplayName: "Bob"},
+				{Seed: 3, UserID: 300, Username: "carol", DisplayName: "Carol"},
+			}, nil
+		},
+		listTournamentMatchesFunc: func(_ context.Context, _ int32) ([]db.TournamentMatch, error) {
+			return []db.TournamentMatch{
+				{TournamentMatchID: 1, Round: 0, Position: 0},
+				{TournamentMatchID: 2, Round: 0, Position: 1},
+				{TournamentMatchID: 3, Round: 1, Position: 0},
+			}, nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetTournament(context.Background(), GetTournamentRequestObject{TournamentID: 1}, user)
 	if err != nil {
@@ -1181,7 +895,6 @@ func TestGetTournament_ByeAutoWinner(t *testing.T) {
 	}
 	okResp := resp.(GetTournament200JSONResponse)
 
-	// Round 1, Position 0 (final): player1 should be Alice (bye winner from round 0 pos 0)
 	final := okResp.Tournament.Matches[2]
 	if final.Round != 1 || final.Position != 0 {
 		t.Fatalf("expected final at round=1, pos=0")

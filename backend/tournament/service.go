@@ -1,0 +1,303 @@
+package tournament
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+
+	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
+)
+
+type Service struct {
+	q db.Querier
+}
+
+func NewService(q db.Querier) *Service {
+	return &Service{q: q}
+}
+
+// Domain types
+
+type Player struct {
+	UserID      int
+	Username    string
+	DisplayName string
+	IconPath    *string
+	IsAdmin     bool
+	Label       *string
+}
+
+type TournamentEntry struct {
+	User Player
+	Seed int
+}
+
+type TournamentMatch struct {
+	TournamentMatchID int
+	Round             int
+	Position          int
+	GameID            *int
+	Player1           *Player
+	Player2           *Player
+	Player1Score      *int
+	Player2Score      *int
+	WinnerUserID      *int
+	IsBye             bool
+}
+
+type TournamentBracket struct {
+	TournamentID int
+	DisplayName  string
+	BracketSize  int
+	NumRounds    int
+	Entries      []TournamentEntry
+	Matches      []TournamentMatch
+}
+
+// StandardBracketSeeds returns the seed assignments for each slot in a standard
+// single-elimination bracket.
+func StandardBracketSeeds(bracketSize int) []int {
+	seeds := make([]int, bracketSize)
+	seeds[0] = 1
+	for size := 2; size <= bracketSize; size *= 2 {
+		temp := make([]int, size)
+		for i := 0; i < size/2; i++ {
+			temp[i*2] = seeds[i]
+			temp[i*2+1] = size + 1 - seeds[i]
+		}
+		copy(seeds, temp)
+	}
+	return seeds
+}
+
+func findSeedByUserID(entries []TournamentEntry, userID int) int {
+	for _, e := range entries {
+		if e.User.UserID == userID {
+			return e.Seed
+		}
+	}
+	return 0
+}
+
+func (s *Service) GetTournament(ctx context.Context, tournamentID int) (TournamentBracket, error) {
+	t, err := s.q.GetTournamentByID(ctx, int32(tournamentID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TournamentBracket{}, game.ErrNotFound
+		}
+		return TournamentBracket{}, err
+	}
+
+	entryRows, err := s.q.ListTournamentEntries(ctx, int32(tournamentID))
+	if err != nil {
+		return TournamentBracket{}, err
+	}
+
+	seedToUser := make(map[int]Player)
+	entries := make([]TournamentEntry, len(entryRows))
+	for i, e := range entryRows {
+		u := Player{
+			UserID:      int(e.UserID),
+			Username:    e.Username,
+			DisplayName: e.DisplayName,
+			IconPath:    e.IconPath,
+			IsAdmin:     e.IsAdmin,
+			Label:       e.Label,
+		}
+		seedToUser[int(e.Seed)] = u
+		entries[i] = TournamentEntry{
+			User: u,
+			Seed: int(e.Seed),
+		}
+	}
+
+	matchRows, err := s.q.ListTournamentMatches(ctx, int32(tournamentID))
+	if err != nil {
+		return TournamentBracket{}, err
+	}
+
+	bracketSize := int(t.BracketSize)
+	numRounds := int(t.NumRounds)
+	bracketSeeds := StandardBracketSeeds(bracketSize)
+
+	// Index matches by (round, position)
+	type matchKey struct{ round, position int }
+	matchByKey := make(map[matchKey]db.TournamentMatch)
+	for _, m := range matchRows {
+		matchByKey[matchKey{int(m.Round), int(m.Position)}] = m
+	}
+
+	// Collect game IDs for batch fetching
+	gameIDs := make(map[int32]bool)
+	for _, m := range matchRows {
+		if m.GameID != nil {
+			gameIDs[*m.GameID] = true
+		}
+	}
+
+	// Fetch rankings for all games that have started
+	type rankingResult struct {
+		scores   map[int]int // userID -> score
+		winnerID int
+	}
+	gameRankings := make(map[int32]*rankingResult)
+	for gid := range gameIDs {
+		gameRow, err := s.q.GetGameByID(ctx, gid)
+		if err != nil {
+			continue
+		}
+		if !gameRow.StartedAt.Valid {
+			continue
+		}
+		rankingRows, err := s.q.GetRanking(ctx, gid)
+		if err != nil || len(rankingRows) == 0 {
+			continue
+		}
+		rr := &rankingResult{scores: make(map[int]int)}
+		for i, r := range rankingRows {
+			rr.scores[int(r.User.UserID)] = int(r.Submission.CodeSize)
+			if i == 0 {
+				rr.winnerID = int(r.User.UserID)
+			}
+		}
+		gameRankings[gid] = rr
+	}
+
+	// Build match results bottom-up
+	type matchResult struct {
+		player1   *Player
+		player2   *Player
+		p1Score   *int
+		p2Score   *int
+		winnerUID *int
+		isBye     bool
+	}
+	resultByKey := make(map[matchKey]*matchResult)
+
+	for round := range numRounds {
+		numPositions := bracketSize / (1 << (round + 1))
+		for pos := range numPositions {
+			m, exists := matchByKey[matchKey{round, pos}]
+			mr := &matchResult{}
+
+			if round == 0 {
+				slot1 := pos * 2
+				slot2 := pos*2 + 1
+				seed1 := bracketSeeds[slot1]
+				seed2 := bracketSeeds[slot2]
+
+				if u, ok := seedToUser[seed1]; ok {
+					mr.player1 = &u
+				}
+				if u, ok := seedToUser[seed2]; ok {
+					mr.player2 = &u
+				}
+			} else {
+				child1 := resultByKey[matchKey{round - 1, pos * 2}]
+				child2 := resultByKey[matchKey{round - 1, pos*2 + 1}]
+
+				if child1 != nil && child1.winnerUID != nil {
+					if u, ok := seedToUser[findSeedByUserID(entries, *child1.winnerUID)]; ok {
+						mr.player1 = &u
+					}
+				}
+				if child2 != nil && child2.winnerUID != nil {
+					if u, ok := seedToUser[findSeedByUserID(entries, *child2.winnerUID)]; ok {
+						mr.player2 = &u
+					}
+				}
+			}
+
+			// Check for bye
+			if mr.player1 == nil && mr.player2 != nil {
+				mr.isBye = true
+				uid := mr.player2.UserID
+				mr.winnerUID = &uid
+			} else if mr.player1 != nil && mr.player2 == nil {
+				mr.isBye = true
+				uid := mr.player1.UserID
+				mr.winnerUID = &uid
+			}
+
+			// Resolve scores from game
+			if exists && m.GameID != nil && !mr.isBye {
+				if rr, ok := gameRankings[*m.GameID]; ok {
+					if mr.player1 != nil {
+						if s, ok := rr.scores[mr.player1.UserID]; ok {
+							score := s
+							mr.p1Score = &score
+						}
+					}
+					if mr.player2 != nil {
+						if s, ok := rr.scores[mr.player2.UserID]; ok {
+							score := s
+							mr.p2Score = &score
+						}
+					}
+					if mr.player1 != nil && mr.player2 != nil {
+						if rr.winnerID == mr.player1.UserID || rr.winnerID == mr.player2.UserID {
+							w := rr.winnerID
+							mr.winnerUID = &w
+						} else {
+							if mr.p1Score != nil && mr.p2Score != nil {
+								if *mr.p1Score <= *mr.p2Score {
+									w := mr.player1.UserID
+									mr.winnerUID = &w
+								} else {
+									w := mr.player2.UserID
+									mr.winnerUID = &w
+								}
+							}
+						}
+					}
+				}
+			}
+
+			resultByKey[matchKey{round, pos}] = mr
+		}
+	}
+
+	// Build response matches
+	apiMatches := make([]TournamentMatch, 0, len(matchRows))
+	for round := 0; round < numRounds; round++ {
+		numPositions := bracketSize / (1 << (round + 1))
+		for pos := 0; pos < numPositions; pos++ {
+			m, exists := matchByKey[matchKey{round, pos}]
+			mr := resultByKey[matchKey{round, pos}]
+
+			matchID := 0
+			var gameID *int
+			if exists {
+				matchID = int(m.TournamentMatchID)
+				if m.GameID != nil {
+					gid := int(*m.GameID)
+					gameID = &gid
+				}
+			}
+
+			apiMatches = append(apiMatches, TournamentMatch{
+				TournamentMatchID: matchID,
+				Round:             round,
+				Position:          pos,
+				GameID:            gameID,
+				Player1:           mr.player1,
+				Player2:           mr.player2,
+				Player1Score:      mr.p1Score,
+				Player2Score:      mr.p2Score,
+				WinnerUserID:      mr.winnerUID,
+				IsBye:             mr.isBye,
+			})
+		}
+	}
+
+	return TournamentBracket{
+		TournamentID: int(t.TournamentID),
+		DisplayName:  t.DisplayName,
+		BracketSize:  bracketSize,
+		NumRounds:    numRounds,
+		Entries:      entries,
+		Matches:      apiMatches,
+	}, nil
+}

@@ -7,6 +7,9 @@ import (
 
 	"albatross-2026-backend/config"
 	"albatross-2026-backend/db"
+	"albatross-2026-backend/game"
+	"albatross-2026-backend/session"
+	"albatross-2026-backend/tournament"
 )
 
 var _ StrictServerInterface = (*HandlerWrapper)(nil)
@@ -15,25 +18,25 @@ type HandlerWrapper struct {
 	impl Handler
 }
 
-func NewHandler(queries db.Querier, txm db.TxManager, hub GameHubInterface, auth AuthenticatorInterface, conf *config.Config) *HandlerWrapper {
+func NewHandler(gameSvc *game.Service, tournamentSvc *tournament.Service, auth AuthenticatorInterface, queries db.Querier, conf *config.Config) *HandlerWrapper {
 	return &HandlerWrapper{
 		impl: Handler{
-			q:    queries,
-			txm:  txm,
-			hub:  hub,
-			auth: auth,
-			conf: conf,
+			gameSvc:       gameSvc,
+			tournamentSvc: tournamentSvc,
+			auth:          auth,
+			conf:          conf,
+			q:             queries,
 		},
 	}
 }
 
 func (h *HandlerWrapper) GetGame(ctx context.Context, request GetGameRequestObject) (GetGameResponseObject, error) {
-	user, _ := GetUserFromContext(ctx)
+	user, _ := session.GetUserFromContext(ctx)
 	return h.impl.GetGame(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request GetGamePlayLatestStateRequestObject) (GetGamePlayLatestStateResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return GetGamePlayLatestState401JSONResponse{
 			Message: "Unauthorized",
@@ -43,7 +46,7 @@ func (h *HandlerWrapper) GetGamePlayLatestState(ctx context.Context, request Get
 }
 
 func (h *HandlerWrapper) GetGamePlaySubmissions(ctx context.Context, request GetGamePlaySubmissionsRequestObject) (GetGamePlaySubmissionsResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return GetGamePlaySubmissions401JSONResponse{
 			Message: "Unauthorized",
@@ -53,22 +56,22 @@ func (h *HandlerWrapper) GetGamePlaySubmissions(ctx context.Context, request Get
 }
 
 func (h *HandlerWrapper) GetGameWatchLatestStates(ctx context.Context, request GetGameWatchLatestStatesRequestObject) (GetGameWatchLatestStatesResponseObject, error) {
-	user, _ := GetUserFromContext(ctx)
+	user, _ := session.GetUserFromContext(ctx)
 	return h.impl.GetGameWatchLatestStates(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetGameWatchRanking(ctx context.Context, request GetGameWatchRankingRequestObject) (GetGameWatchRankingResponseObject, error) {
-	user, _ := GetUserFromContext(ctx)
+	user, _ := session.GetUserFromContext(ctx)
 	return h.impl.GetGameWatchRanking(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error) {
-	user, _ := GetUserFromContext(ctx)
+	user, _ := session.GetUserFromContext(ctx)
 	return h.impl.GetGames(ctx, request, user)
 }
 
 func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return GetMe401JSONResponse{
 			Message: "Unauthorized",
@@ -78,12 +81,12 @@ func (h *HandlerWrapper) GetMe(ctx context.Context, request GetMeRequestObject) 
 }
 
 func (h *HandlerWrapper) GetTournament(ctx context.Context, request GetTournamentRequestObject) (GetTournamentResponseObject, error) {
-	user, _ := GetUserFromContext(ctx)
+	user, _ := session.GetUserFromContext(ctx)
 	return h.impl.GetTournament(ctx, request, user)
 }
 
 func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject) (PostGamePlayCodeResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return PostGamePlayCode401JSONResponse{
 			Message: "Unauthorized",
@@ -93,7 +96,7 @@ func (h *HandlerWrapper) PostGamePlayCode(ctx context.Context, request PostGameP
 }
 
 func (h *HandlerWrapper) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject) (PostGamePlaySubmitResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return PostGamePlaySubmit401JSONResponse{
 			Message: "Unauthorized",
@@ -107,7 +110,7 @@ func (h *HandlerWrapper) PostLogin(ctx context.Context, request PostLoginRequest
 }
 
 func (h *HandlerWrapper) PostLogout(ctx context.Context, request PostLogoutRequestObject) (PostLogoutResponseObject, error) {
-	user, ok := GetUserFromContext(ctx)
+	user, ok := session.GetUserFromContext(ctx)
 	if !ok {
 		return PostLogout401JSONResponse{
 			Message: "Unauthorized",
