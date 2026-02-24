@@ -29,7 +29,7 @@
     {{ range .Submissions }}
       <tr>
         <td>{{ .SubmissionID }}</td>
-        <td>{{ .UserID }}</td>
+        <td>{{ .Username }} (id={{ .UserID }})</td>
         <td>{{ .Status }}</td>
         <td>{{ .CodeSize }}</td>
         <td>{{ .CreatedAt }}</td>

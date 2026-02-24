@@ -1182,6 +1182,11 @@ func TestGetSubmissions_Success(t *testing.T) {
 				},
 			}, nil
 		},
+		listUsersFunc: func(_ context.Context) ([]db.User, error) {
+			return []db.User{
+				{UserID: 1, Username: "alice"},
+			}, nil
+		},
 	}
 	h := newTestHandler(q)
 
@@ -1207,6 +1212,9 @@ func TestGetSubmissionDetail_Success(t *testing.T) {
 				Status:       "pass",
 				CreatedAt:    pgtype.Timestamp{Valid: true},
 			}, nil
+		},
+		getUserByIDFunc: func(_ context.Context, userID int32) (db.User, error) {
+			return db.User{UserID: userID, Username: "alice"}, nil
 		},
 		getTestcaseResultsBySubmIDFunc: func(_ context.Context, _ int32) ([]db.TestcaseResult, error) {
 			return []db.TestcaseResult{
