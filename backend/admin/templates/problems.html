@@ -14,6 +14,7 @@
       <a href="{{ $.BasePath }}admin/problems/{{ .ProblemID }}">
         {{ .Title }} (id={{ .ProblemID }} language={{ .Language }})
       </a>
+      | <a href="{{ $.BasePath }}admin/problems/{{ .ProblemID }}/testcases">Testcases</a>
     </li>
   {{ end }}
 </ul>

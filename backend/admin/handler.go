@@ -530,9 +530,20 @@ func (h *Handler) getSubmissions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid game_id")
 	}
 
-	submissions, err := h.q.GetSubmissionsByGameID(c.Request().Context(), int32(gameID))
+	ctx := c.Request().Context()
+
+	submissions, err := h.q.GetSubmissionsByGameID(ctx, int32(gameID))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	userRows, err := h.q.ListUsers(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	usernameMap := make(map[int32]string, len(userRows))
+	for _, u := range userRows {
+		usernameMap[u.UserID] = u.Username
 	}
 
 	entries := make([]echo.Map, len(submissions))
@@ -540,6 +551,7 @@ func (h *Handler) getSubmissions(c echo.Context) error {
 		entries[i] = echo.Map{
 			"SubmissionID": r.SubmissionID,
 			"UserID":       r.UserID,
+			"Username":     usernameMap[r.UserID],
 			"Status":       r.Status,
 			"CodeSize":     r.CodeSize,
 			"CreatedAt":    r.CreatedAt.Time.In(jst).Format("2006-01-02T15:04"),
@@ -565,7 +577,9 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid submission_id")
 	}
 
-	submission, err := h.q.GetSubmissionByID(c.Request().Context(), int32(submissionID))
+	ctx := c.Request().Context()
+
+	submission, err := h.q.GetSubmissionByID(ctx, int32(submissionID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound)
@@ -573,7 +587,17 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	testcaseResultRows, err := h.q.GetTestcaseResultsBySubmissionID(c.Request().Context(), int32(submissionID))
+	var username string
+	user, err := h.q.GetUserByID(ctx, submission.UserID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	} else {
+		username = user.Username
+	}
+
+	testcaseResultRows, err := h.q.GetTestcaseResultsBySubmissionID(ctx, int32(submissionID))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -596,6 +620,7 @@ func (h *Handler) getSubmissionDetail(c echo.Context) error {
 		"Submission": echo.Map{
 			"SubmissionID": submission.SubmissionID,
 			"UserID":       submission.UserID,
+			"Username":     username,
 			"Status":       submission.Status,
 			"CodeSize":     submission.CodeSize,
 			"CreatedAt":    submission.CreatedAt.Time.In(jst).Format("2006-01-02T15:04"),
