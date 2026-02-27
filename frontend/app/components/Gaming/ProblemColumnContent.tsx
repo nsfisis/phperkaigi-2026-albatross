@@ -18,7 +18,7 @@ function PhpNotice() {
 				</p>
 				<p>
 					この環境の PHP バージョンは{" "}
-					<strong className="font-bold">8.4.4</strong> です。 mbstring
+					<strong className="font-bold">8.5.3</strong> です。 mbstring
 					を除くほとんどの拡張は無効化されています。
 					また、ファイルやネットワークアクセスはできません。
 				</p>

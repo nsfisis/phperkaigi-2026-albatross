@@ -1,6 +1,6 @@
-FROM emscripten/emsdk:3.1.74 AS wasm-builder
+FROM emscripten/emsdk:5.0.1 AS wasm-builder
 
-RUN git clone --depth=1 --branch=php-8.4.4 https://github.com/php/php-src
+RUN git clone --depth=1 --branch=php-8.5.3 https://github.com/php/php-src
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -11,26 +11,27 @@ RUN apt-get update && \
         && \
     :
 
-# Define ZEND_MM_ERROR=0 for suppressing munmap() errors.
+# Define ZEND_MM_ERROR=0 to suppress munmap() errors.
 RUN cd php-src && \
     ./buildconf --force && \
     emconfigure ./configure \
         --disable-all \
-        --disable-mbregex \
-        --disable-fiber-asm \
-        --disable-cli \
         --disable-cgi \
+        --disable-cli \
+        --disable-fiber-asm \
+        --disable-mbregex \
+        --disable-opcache-jit \
         --disable-phpdbg \
         --enable-embed=static \
-        --enable-short-tags \
         --enable-mbstring \
+        --enable-short-tags \
         --without-iconv \
         --without-libxml \
         --without-pcre-jit \
         --without-pdo-sqlite \
         --without-sqlite3 \
         && \
-    EMCC_CFLAGS='-s ERROR_ON_UNDEFINED_SYMBOLS=0 -D ZEND_MM_ERROR=0' emmake make -j$(nproc) && \
+    EMCC_CFLAGS='-D ZEND_MM_ERROR=0' emmake make -j$(nproc) && \
     mv libs/libphp.a .. && \
     make clean && \
     git clean -fd && \
@@ -54,16 +55,16 @@ RUN cd php-src && \
     :
 
 RUN emcc \
-        -s ENVIRONMENT=node \
-        -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
-        -s EXPORTED_RUNTIME_METHODS='["ccall"]' \
-        -s EXPORT_ES6=1 \
-        -s INITIAL_MEMORY=16777216 \
-        -s INVOKE_RUN=0 \
-        -s MODULARIZE=1 \
-        -o php-wasm.js \
-        php-wasm.o \
-        libphp.a \
+    -s ENVIRONMENT=node \
+    -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+    -s EXPORTED_RUNTIME_METHODS='["ccall"]' \
+    -s EXPORT_ES6=1 \
+    -s INITIAL_MEMORY=16777216 \
+    -s INVOKE_RUN=0 \
+    -s MODULARIZE=1 \
+    -o php-wasm.js \
+    php-wasm.o \
+    libphp.a \
     ;
 
 FROM node:22.14
