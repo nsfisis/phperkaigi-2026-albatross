@@ -3,9 +3,9 @@
 
 # これは何？
 
-2026-03-20 から 2026-03-22 にかけて開催された [PHPerKaigi 2026](https://phperkaigi.jp/2026/) の中の企画、PHPer コードバトルのシステムです。
+2026-03-20 から 2026-03-22 にかけて開催される [PHPerKaigi 2026](https://phperkaigi.jp/2026/) の中の企画、PHPer コードバトルのシステムです。
 
-[サイトはこちら (現在は新規にプレイすることはできません)](https://t.nil.ninja/phperkaigi/2026/code-battle/)
+[サイトはこちら (現在プレイできるのは、予選イベントに参加している方のみです)](https://t.nil.ninja/phperkaigi/2026/code-battle/)
 
 
 # サンドボックス化の仕組み

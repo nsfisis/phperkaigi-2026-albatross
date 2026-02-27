@@ -15,18 +15,17 @@ export default function IndexPage() {
 			/>
 			<div className="text-center">
 				<div className="font-bold text-transparent bg-clip-text bg-phperkaigi">
-					<div className="text-6xl">Swift Code Battle</div>
+					<div className="text-6xl">PHPER CODE BATTLE</div>
 				</div>
 			</div>
 			<div className="mx-2">
 				<BorderedContainer>
 					<p className="text-gray-900 max-w-prose">
-						Swift コードバトルは指示された動作をする Swift
-						コードをより短く書けた方が勝ち、という 1 対 1
-						の対戦コンテンツです。9/6
-						に実施された予選を勝ち抜いたプレイヤーによるトーナメント形式での
-						コードバトルを 9/19 (金) day0
-						に実施します。ここでは短いコードが正義です！
+						PHPer コードバトルは指示された動作をする PHP
+						コードをより短く書けた方が勝ち、という 1 対 1 の対戦コンテンツです。
+						3/20 の day 0 と 3/21 の day 1 では、2/28
+						に実施されたオフライン予選と、当日まで開催しているオンライン予選を勝ち抜いたプレイヤーによるトーナメント形式での
+						PHPer コードバトルを実施します。ここでは短いコードが正義です！
 						可読性も保守性も放り投げた、イベントならではのコードをお楽しみください！
 					</p>
 				</BorderedContainer>
