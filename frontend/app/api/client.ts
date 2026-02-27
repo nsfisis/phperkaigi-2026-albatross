@@ -5,7 +5,7 @@ import type { paths } from "./schema";
 
 const apiOrigin =
 	import.meta.env.VITE_API_BASE_URL ??
-	(import.meta.env.DEV ? "http://localhost:8004" : "");
+	(import.meta.env.DEV ? "http://localhost:8007" : "");
 
 const client = createClient<paths>({
 	baseUrl: `${apiOrigin}${API_BASE_PATH}`,

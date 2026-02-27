@@ -114,7 +114,7 @@ export default function DashboardPage() {
 				<a
 					href={
 						import.meta.env.DEV
-							? `http://localhost:8004${BASE_PATH}admin/dashboard`
+							? `http://localhost:8007${BASE_PATH}admin/dashboard`
 							: `${BASE_PATH}admin/dashboard`
 					}
 					className="text-lg text-white bg-sky-600 px-4 py-2 rounded-sm transition duration-300 hover:bg-sky-500 focus:ring-3 focus:ring-sky-400 focus:outline-hidden"
