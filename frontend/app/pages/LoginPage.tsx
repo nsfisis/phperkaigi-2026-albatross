@@ -57,7 +57,7 @@ export default function LoginPage() {
 						<h2 className="text-2xl mb-6 text-center">
 							fortee アカウントでログイン
 						</h2>
-						{error && <p className="text-sky-500 text-sm mb-4">{error}</p>}
+						{error && <p className="text-brand-500 text-sm mb-4">{error}</p>}
 						<div className="mb-4 flex flex-col gap-1">
 							<label
 								htmlFor="username"

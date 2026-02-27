@@ -68,7 +68,7 @@ export default function SubmissionsPage({ gameId }: { gameId: string }) {
 															: s.submission_id,
 													)
 												}
-												className="text-sm text-sky-600 hover:text-sky-800 underline"
+												className="text-sm text-brand-600 hover:text-brand-800 underline"
 											>
 												{expandedId === s.submission_id
 													? "コードを隠す"

@@ -31,6 +31,6 @@ describe("InputText", () => {
 	test("has border styling", () => {
 		render(<InputText data-testid="input" />);
 		const input = screen.getByTestId("input");
-		expect(input.className).toContain("border-sky-600");
+		expect(input.className).toContain("border-brand-600");
 	});
 });

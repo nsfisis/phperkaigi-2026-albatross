@@ -67,7 +67,7 @@ export default function GolfPlayAppGaming({
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
-			<div className="text-white bg-sky-600 flex flex-row justify-between px-4 py-2">
+			<div className="text-white bg-brand-600 flex flex-row justify-between px-4 py-2">
 				<div className="font-bold">
 					<div className="text-gray-100">{gameDisplayName}</div>
 					{isFinished ? (
@@ -122,7 +122,7 @@ export default function GolfPlayAppGaming({
 					</BorderedContainer>
 				</TitledColumn>
 				<TitledColumn title="提出結果">
-					<div className="overflow-hidden border-2 border-blue-600 rounded-xl">
+					<div className="overflow-hidden border-2 border-brand-600 rounded-xl">
 						<table className="min-w-full divide-y divide-gray-400 border-collapse">
 							<thead className="bg-gray-50">
 								<tr>

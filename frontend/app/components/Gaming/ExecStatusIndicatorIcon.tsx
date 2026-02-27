@@ -31,7 +31,7 @@ export default function ExecStatusIndicatorIcon({ status }: Props) {
 				<FontAwesomeIcon
 					icon={faCircleCheck}
 					fixedWidth
-					className="text-sky-500"
+					className="text-brand-500"
 				/>
 			);
 		default:

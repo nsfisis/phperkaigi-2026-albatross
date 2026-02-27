@@ -33,9 +33,9 @@ describe("SubmitButton", () => {
 		expect(button.disabled).toBe(false);
 	});
 
-	test("has sky-600 background styling", () => {
+	test("has brand-600 background styling", () => {
 		render(<SubmitButton>Submit</SubmitButton>);
 		const button = screen.getByText("Submit");
-		expect(button.className).toContain("bg-sky-600");
+		expect(button.className).toContain("bg-brand-600");
 	});
 });

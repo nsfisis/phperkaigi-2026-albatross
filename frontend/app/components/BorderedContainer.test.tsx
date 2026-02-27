@@ -27,7 +27,7 @@ describe("BorderedContainer", () => {
 		render(<BorderedContainer>Styled</BorderedContainer>);
 		const container = screen.getByText("Styled").closest("div");
 		expect(container?.className).toContain("border-2");
-		expect(container?.className).toContain("border-blue-600");
+		expect(container?.className).toContain("border-brand-600");
 		expect(container?.className).toContain("rounded-xl");
 	});
 });

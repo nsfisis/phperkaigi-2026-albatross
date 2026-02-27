@@ -33,7 +33,7 @@ export default function CodeBlock({ code, language }: Props) {
 				>
 					<FontAwesomeIcon icon={faCopy} className="text-gray-600" />
 					{showCopied && (
-						<span className="ml-1 text-xs text-blue-600">Copied!</span>
+						<span className="ml-1 text-xs text-brand-600">Copied!</span>
 					)}
 				</button>
 			)}

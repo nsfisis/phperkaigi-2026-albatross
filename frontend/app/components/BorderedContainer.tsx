@@ -8,7 +8,7 @@ type Props = {
 export default function BorderedContainer({ children, className }: Props) {
 	return (
 		<div
-			className={`bg-white border-2 border-blue-600 rounded-xl p-4 ${className}`}
+			className={`bg-white border-2 border-brand-600 rounded-xl p-4 ${className}`}
 		>
 			{children}
 		</div>

@@ -10,7 +10,7 @@ export default function GolfWatchAppStarting({ gameDisplayName }: Props) {
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
-			<div className="text-white bg-sky-600 p-10 text-center">
+			<div className="text-white bg-brand-600 p-10 text-center">
 				<div className="text-4xl font-bold">{gameDisplayName}</div>
 			</div>
 			<div className="text-center text-black font-black text-10xl">

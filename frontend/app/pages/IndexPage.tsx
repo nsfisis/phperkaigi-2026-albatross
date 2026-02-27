@@ -14,7 +14,7 @@ export default function IndexPage() {
 				className="w-96 h-auto"
 			/>
 			<div className="text-center">
-				<div className="font-bold text-transparent bg-clip-text bg-phperkaigi">
+				<div className="font-bold text-transparent bg-clip-text bg-brand-600">
 					<div className="text-6xl">PHPER CODE BATTLE</div>
 				</div>
 			</div>

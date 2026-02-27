@@ -26,7 +26,7 @@ export default function GolfWatchAppGamingMultiplayer({
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
-			<div className="text-white bg-sky-600 grid grid-cols-3 px-4 py-2">
+			<div className="text-white bg-brand-600 grid grid-cols-3 px-4 py-2">
 				<div className="font-bold flex justify-between my-auto"></div>
 				<div className="font-bold text-center">
 					<div className="text-gray-100">{gameDisplayName}</div>

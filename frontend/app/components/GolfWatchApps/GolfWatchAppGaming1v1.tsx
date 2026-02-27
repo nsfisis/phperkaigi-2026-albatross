@@ -64,8 +64,8 @@ export default function GolfWatchAppGaming1v1({
 			? "bg-orange-400"
 			: gameResultKind === "winB"
 				? "bg-purple-400"
-				: "bg-sky-600"
-		: "bg-sky-600";
+				: "bg-brand-600"
+		: "bg-brand-600";
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
