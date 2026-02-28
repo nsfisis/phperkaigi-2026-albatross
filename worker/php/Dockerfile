@@ -77,7 +77,7 @@ COPY package.json package-lock.json ./
 COPY worker/php/package.json worker/php/
 RUN npm install -w worker/php --omit=dev
 
-COPY worker/php/index.mjs worker/php/exec.mjs worker/php/
+COPY worker/php/index.mjs worker/php/lib.mjs worker/php/exec.mjs worker/php/
 
 WORKDIR /app/worker/php
 ENTRYPOINT ["node", "index.mjs"]
