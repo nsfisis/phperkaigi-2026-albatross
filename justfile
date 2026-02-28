@@ -30,16 +30,16 @@ psql-query:
 sqldef-dryrun: down
     {{ docker_compose }} build db
     {{ docker_compose }} up --wait db
-    {{ docker_compose }} run --no-TTY tools psqldef --dry-run < ./backend/schema.sql
+    {{ docker_compose }} run --rm --no-TTY tools psqldef --dry-run < ./backend/schema.sql
 
 sqldef: down
     {{ docker_compose }} build db
     {{ docker_compose }} up --wait db
-    {{ docker_compose }} run --no-TTY tools psqldef < ./backend/schema.sql
+    {{ docker_compose }} run --rm --no-TTY tools psqldef < ./backend/schema.sql
 
 asynq:
     {{ docker_compose }} up --wait task-db
-    {{ docker_compose }} run tools go run github.com/hibiken/asynq/tools/asynq --uri task-db:6379 dash
+    {{ docker_compose }} run --rm tools go run github.com/hibiken/asynq/tools/asynq --uri task-db:6379 dash
 
 init: build initdb
 

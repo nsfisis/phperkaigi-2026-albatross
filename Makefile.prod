@@ -40,15 +40,15 @@ psql-query:
 sqldef-dryrun: down
 	${DOCKER_COMPOSE} build db
 	${DOCKER_COMPOSE} up --wait db
-	${DOCKER_COMPOSE} run --no-TTY tools psqldef --dry-run < ./backend/schema.sql
-
-.PHONY: asynq
-asynq:
-	${DOCKER_COMPOSE} up --wait db
-	${DOCKER_COMPOSE} run tools go run github.com/hibiken/asynq/tools/asynq --uri task-db:6379 dash
+	${DOCKER_COMPOSE} run --rm --no-TTY tools psqldef --dry-run < ./backend/schema.sql
 
 .PHONY: sqldef
 sqldef: down
 	${DOCKER_COMPOSE} build db
 	${DOCKER_COMPOSE} up --wait db
-	${DOCKER_COMPOSE} run --no-TTY tools psqldef < ./backend/schema.sql
+	${DOCKER_COMPOSE} run --rm --no-TTY tools psqldef < ./backend/schema.sql
+
+.PHONY: asynq
+asynq:
+	${DOCKER_COMPOSE} up --wait db
+	${DOCKER_COMPOSE} run --rm tools go run github.com/hibiken/asynq/tools/asynq --uri task-db:6379 dash
