@@ -49,16 +49,14 @@ export default function GolfProblemPreviewPage({ gameId }: { gameId: string }) {
 					sampleCode={game.problem.sample_code}
 				/>
 			</div>
-			{game.started_at != null && (
-				<div className="flex gap-4">
-					<NavigateLink to={`/golf/${game.game_id}/play`}>
-						対戦ページへ
-					</NavigateLink>
-					<NavigateLink to={`/golf/${game.game_id}/watch`}>
-						観戦ページへ
-					</NavigateLink>
-				</div>
-			)}
+			<div className="flex gap-4">
+				<NavigateLink to={`/golf/${game.game_id}/play`}>
+					対戦ページへ
+				</NavigateLink>
+				<NavigateLink to={`/golf/${game.game_id}/watch`}>
+					観戦ページへ
+				</NavigateLink>
+			</div>
 			<NavigateLink to="/dashboard">ダッシュボードへ戻る</NavigateLink>
 		</div>
 	);
