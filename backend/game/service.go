@@ -202,7 +202,7 @@ func (s *Service) GetGameByID(ctx context.Context, gameID int, isAdmin bool) (De
 	return game, nil
 }
 
-func (s *Service) SaveCode(ctx context.Context, gameID int, userID int32, code string) error {
+func (s *Service) SaveCode(ctx context.Context, gameID int, userID int32, code string, isAdmin bool) error {
 	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -210,7 +210,7 @@ func (s *Service) SaveCode(ctx context.Context, gameID int, userID int32, code s
 		}
 		return err
 	}
-	if !IsGameRunning(gameRow.StartedAt, gameRow.DurationSeconds) {
+	if !IsGameRunning(gameRow.StartedAt, gameRow.DurationSeconds) && !isAdmin {
 		return ErrGameNotRunning
 	}
 	return s.q.UpdateCode(ctx, db.UpdateCodeParams{
@@ -221,7 +221,7 @@ func (s *Service) SaveCode(ctx context.Context, gameID int, userID int32, code s
 	})
 }
 
-func (s *Service) SubmitCode(ctx context.Context, gameID int, userID int32, code string) error {
+func (s *Service) SubmitCode(ctx context.Context, gameID int, userID int32, code string, isAdmin bool) error {
 	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -233,7 +233,7 @@ func (s *Service) SubmitCode(ctx context.Context, gameID int, userID int32, code
 	language := gameRow.Language
 	codeSize := s.hub.CalcCodeSize(code, language)
 
-	if !IsGameRunning(gameRow.StartedAt, gameRow.DurationSeconds) {
+	if !IsGameRunning(gameRow.StartedAt, gameRow.DurationSeconds) && !isAdmin {
 		return ErrGameNotRunning
 	}
 

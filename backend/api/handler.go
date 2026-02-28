@@ -236,7 +236,7 @@ func (h *Handler) GetGamePlaySubmissions(ctx context.Context, request GetGamePla
 }
 
 func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCodeRequestObject, user *db.User) (PostGamePlayCodeResponseObject, error) {
-	err := h.gameSvc.SaveCode(ctx, request.GameID, user.UserID, request.Body.Code)
+	err := h.gameSvc.SaveCode(ctx, request.GameID, user.UserID, request.Body.Code, user.IsAdmin)
 	if err != nil {
 		if errors.Is(err, game.ErrNotFound) {
 			return PostGamePlayCode404JSONResponse{Message: "Game not found"}, nil
@@ -250,7 +250,7 @@ func (h *Handler) PostGamePlayCode(ctx context.Context, request PostGamePlayCode
 }
 
 func (h *Handler) PostGamePlaySubmit(ctx context.Context, request PostGamePlaySubmitRequestObject, user *db.User) (PostGamePlaySubmitResponseObject, error) {
-	err := h.gameSvc.SubmitCode(ctx, request.GameID, user.UserID, request.Body.Code)
+	err := h.gameSvc.SubmitCode(ctx, request.GameID, user.UserID, request.Body.Code, user.IsAdmin)
 	if err != nil {
 		if errors.Is(err, game.ErrNotFound) {
 			return PostGamePlaySubmit404JSONResponse{}, nil

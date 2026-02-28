@@ -43,7 +43,7 @@ export default function GolfPlayAppGaming({
 	onCodeSubmit,
 	isFinished,
 }: Props) {
-	const leftTimeSeconds = useAtomValue(gamingLeftTimeSecondsAtom)!;
+	const leftTimeSeconds = useAtomValue(gamingLeftTimeSecondsAtom);
 	const score = useAtomValue(scoreAtom);
 	const status = useAtomValue(statusAtom);
 
@@ -72,6 +72,8 @@ export default function GolfPlayAppGaming({
 					<div className="text-gray-100">{gameDisplayName}</div>
 					{isFinished ? (
 						<div className="text-2xl md:text-3xl">終了</div>
+					) : leftTimeSeconds === null ? (
+						<div className="text-2xl md:text-3xl">未開始</div>
 					) : (
 						<LeftTime sec={leftTimeSeconds} />
 					)}

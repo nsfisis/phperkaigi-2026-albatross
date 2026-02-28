@@ -121,6 +121,22 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 	if (gameStateKind === "loading") {
 		return <GolfPlayAppLoading />;
 	} else if (gameStateKind === "waiting") {
+		if (player.is_admin) {
+			return (
+				<GolfPlayAppGaming
+					gameDisplayName={game.display_name}
+					playerProfile={playerProfile}
+					problemTitle={game.problem.title}
+					problemDescription={game.problem.description}
+					problemLanguage={game.problem.language}
+					sampleCode={game.problem.sample_code}
+					initialCode={initialGameState.code}
+					onCodeChange={onCodeChange}
+					onCodeSubmit={onCodeSubmit}
+					isFinished={false}
+				/>
+			);
+		}
 		return (
 			<GolfPlayAppWaiting
 				gameDisplayName={game.display_name}
