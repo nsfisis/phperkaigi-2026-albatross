@@ -249,6 +249,59 @@ func TestNormalizeTestcaseResultOutput(t *testing.T) {
 	}
 }
 
+func TestNormalizeCRLF(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"CRLF to LF", "hello\r\nworld", "hello\nworld"},
+		{"CR to LF", "hello\rworld", "hello\nworld"},
+		{"LF unchanged", "hello\nworld", "hello\nworld"},
+		{"lone CRLF", "\r\n", "\n"},
+		{"empty string", "", ""},
+		{"multiple CRLF", "a\r\nb\r\nc", "a\nb\nc"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeCRLF(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeCRLF(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEnqueueTestTasks_NormalizesCRLF(t *testing.T) {
+	testcases := []db.Testcase{
+		{TestcaseID: 1, ProblemID: 10, Stdin: "input\r\n", Stdout: "output"},
+	}
+
+	tq := &mockTaskQueue{}
+	mq := &mockQuerier{
+		listTestcasesByGameIDFunc: func(_ context.Context, _ int32) ([]db.Testcase, error) {
+			return testcases, nil
+		},
+	}
+
+	hub := &Hub{q: mq, taskQueue: tq, ctx: context.Background()}
+
+	err := hub.EnqueueTestTasks(context.Background(), 100, 1, 42, "php", "<?php\r\necho 1;")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(tq.enqueued) != 1 {
+		t.Fatalf("expected 1 enqueued task, got %d", len(tq.enqueued))
+	}
+	if tq.enqueued[0].Stdin != "input\n" {
+		t.Errorf("expected stdin CRLF normalized, got %q", tq.enqueued[0].Stdin)
+	}
+	if tq.enqueued[0].Code != "<?php\necho 1;" {
+		t.Errorf("expected code CRLF normalized, got %q", tq.enqueued[0].Code)
+	}
+}
+
 func TestCalcCodeSize_PHP(t *testing.T) {
 	hub := &Hub{}
 	tests := []struct {

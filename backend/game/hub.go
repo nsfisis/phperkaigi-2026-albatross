@@ -71,8 +71,8 @@ func (hub *Hub) EnqueueTestTasks(ctx context.Context, submissionID, gameID, user
 			submissionID,
 			int(row.TestcaseID),
 			language,
-			code,
-			row.Stdin,
+			normalizeCRLF(code),
+			normalizeCRLF(row.Stdin),
 			row.Stdout,
 		)
 		if err != nil {
@@ -175,9 +175,12 @@ func (hub *Hub) processTaskResultRunTestcase(
 	return nil
 }
 
+func normalizeCRLF(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
+}
+
 func normalizeTestcaseResultOutput(s string) string {
-	re := regexp.MustCompile(`\r\n|\r`)
-	return re.ReplaceAllString(strings.TrimSpace(s), "\n")
+	return normalizeCRLF(strings.TrimSpace(s))
 }
 
 func isTestcaseResultCorrect(expectedStdout, actualStdout string) bool {
