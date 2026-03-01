@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import React, { useRef, useState } from "react";
 import { Link } from "wouter";
+import type { components } from "../../api/schema";
 import {
 	calcCodeSize,
 	gamingLeftTimeSecondsAtom,
@@ -10,6 +11,11 @@ import {
 import type { PlayerProfile } from "../../types/PlayerProfile";
 import type { SupportedLanguage } from "../../types/SupportedLanguage";
 import BorderedContainer from "../BorderedContainer";
+import CodePopover from "../Gaming/CodePopover";
+import DataTable, {
+	DataTableCell,
+	formatUnixTimestamp,
+} from "../Gaming/DataTable";
 import LeftTime from "../Gaming/LeftTime";
 import ProblemColumn from "../Gaming/ProblemColumn";
 import SubmitButton from "../SubmitButton";
@@ -17,6 +23,8 @@ import SubmitStatusLabel from "../SubmitStatusLabel";
 import ThreeColumnLayout from "../ThreeColumnLayout";
 import TitledColumn from "../TitledColumn";
 import UserIcon from "../UserIcon";
+
+type Submission = components["schemas"]["Submission"];
 
 type Props = {
 	gameDisplayName: string;
@@ -29,6 +37,7 @@ type Props = {
 	onCodeChange: (code: string) => void;
 	onCodeSubmit: (code: string) => void;
 	isFinished: boolean;
+	submissions: Submission[];
 };
 
 export default function GolfPlayAppGaming({
@@ -42,6 +51,7 @@ export default function GolfPlayAppGaming({
 	onCodeChange,
 	onCodeSubmit,
 	isFinished,
+	submissions,
 }: Props) {
 	const leftTimeSeconds = useAtomValue(gamingLeftTimeSecondsAtom);
 	const score = useAtomValue(scoreAtom);
@@ -124,33 +134,33 @@ export default function GolfPlayAppGaming({
 					</BorderedContainer>
 				</TitledColumn>
 				<TitledColumn title="提出結果">
-					<div className="overflow-hidden border-2 border-brand-600 rounded-xl">
-						<table className="min-w-full divide-y divide-gray-400 border-collapse">
-							<thead className="bg-gray-50">
-								<tr>
-									<th
-										scope="col"
-										className="px-6 py-3 text-left font-medium text-gray-800"
-									>
-										ステータス
-									</th>
+					<DataTable headers={["ステータス", "スコア", "提出時刻", "コード"]}>
+						{submissions.length === 0 ? (
+							<tr>
+								<DataTableCell>
+									<SubmitStatusLabel status={status} />
+								</DataTableCell>
+								<DataTableCell>-</DataTableCell>
+								<DataTableCell>-</DataTableCell>
+								<DataTableCell>-</DataTableCell>
+							</tr>
+						) : (
+							submissions.map((s) => (
+								<tr key={s.submission_id}>
+									<DataTableCell>
+										<SubmitStatusLabel status={s.status} />
+									</DataTableCell>
+									<DataTableCell>{s.code_size}</DataTableCell>
+									<DataTableCell>
+										{formatUnixTimestamp(s.created_at)}
+									</DataTableCell>
+									<DataTableCell>
+										<CodePopover code={s.code} language={problemLanguage} />
+									</DataTableCell>
 								</tr>
-							</thead>
-							<tbody className="bg-white divide-y divide-gray-300">
-								{[status].map((status) => (
-									<tr key={99999}>
-										<td className="px-6 py-4 whitespace-nowrap text-gray-900">
-											<SubmitStatusLabel status={status} />
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-					<p>
-						NOTE:
-						過去の提出結果を閲覧する機能は現在実装中です。それまでは提出コードをお手元に保管しておいてください。
-					</p>
+							))
+						)}
+					</DataTable>
 				</TitledColumn>
 			</ThreeColumnLayout>
 		</div>

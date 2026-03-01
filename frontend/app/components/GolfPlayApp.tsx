@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useHydrateAtoms } from "jotai/utils";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useTimer } from "react-use-precision-timer";
 import { useDebouncedCallback } from "use-debounce";
 import { ApiClientContext } from "../api/client";
@@ -21,6 +21,7 @@ import GolfPlayAppWaiting from "./GolfPlayApps/GolfPlayAppWaiting";
 
 type Game = components["schemas"]["Game"];
 type User = components["schemas"]["User"];
+type Submission = components["schemas"]["Submission"];
 type LatestGameState = components["schemas"]["LatestGameState"];
 
 type Props = {
@@ -75,7 +76,25 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 		{ leading: true },
 	);
 
+	const [submissions, setSubmissions] = useState<Submission[]>([]);
 	const [isDataPolling, setIsDataPolling] = useState(false);
+
+	const fetchSubmissions = useCallback(async () => {
+		try {
+			const { submissions } = await apiClient.getGamePlaySubmissions(
+				game.game_id,
+			);
+			setSubmissions(submissions);
+		} catch (error) {
+			console.error(error);
+		}
+	}, [apiClient, game.game_id]);
+
+	useEffect(() => {
+		if (gameStateKind === "finished") {
+			fetchSubmissions();
+		}
+	}, [gameStateKind, fetchSubmissions]);
 
 	useEffect(() => {
 		if (isDataPolling) {
@@ -98,6 +117,7 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 						game.game_id,
 					);
 					setLatestGameState(state);
+					await fetchSubmissions();
 				}
 			} catch (error) {
 				console.error(error);
@@ -116,6 +136,7 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 		gameStateKind,
 		setGameStartedAt,
 		setLatestGameState,
+		fetchSubmissions,
 	]);
 
 	if (gameStateKind === "loading") {
@@ -134,6 +155,7 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 					onCodeChange={onCodeChange}
 					onCodeSubmit={onCodeSubmit}
 					isFinished={false}
+					submissions={submissions}
 				/>
 			);
 		}
@@ -158,6 +180,7 @@ export default function GolfPlayApp({ game, player, initialGameState }: Props) {
 				onCodeChange={onCodeChange}
 				onCodeSubmit={onCodeSubmit}
 				isFinished={gameStateKind === "finished"}
+				submissions={submissions}
 			/>
 		);
 	}
