@@ -37,7 +37,7 @@ export default function CodeBlock({ code, language }: Props) {
 					)}
 				</button>
 			)}
-			<pre className="h-full w-full p-2 bg-gray-50 rounded-lg border border-gray-300 whitespace-pre-wrap break-words">
+			<pre className="h-full w-full p-2 pr-12 bg-white rounded-lg border border-gray-300 whitespace-pre-wrap break-words">
 				{nodes === null ? <code>{code}</code> : nodes}
 			</pre>
 		</div>
