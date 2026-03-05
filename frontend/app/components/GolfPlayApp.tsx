@@ -6,13 +6,13 @@ import { useDebouncedCallback } from "use-debounce";
 import { ApiClientContext } from "../api/client";
 import type { components } from "../api/schema";
 import {
-	gameStateKindAtom,
-	handleSubmitCodePostAtom,
-	handleSubmitCodePreAtom,
-	setCurrentTimestampAtom,
-	setDurationSecondsAtom,
-	setGameStartedAtAtom,
-	setLatestGameStateAtom,
+  gameStateKindAtom,
+  handleSubmitCodePostAtom,
+  handleSubmitCodePreAtom,
+  setCurrentTimestampAtom,
+  setDurationSecondsAtom,
+  setGameStartedAtAtom,
+  setLatestGameStateAtom,
 } from "../states/play";
 import GolfPlayAppGaming from "./GolfPlayApps/GolfPlayAppGaming";
 import GolfPlayAppLoading from "./GolfPlayApps/GolfPlayAppLoading";
@@ -25,163 +25,163 @@ type Submission = components["schemas"]["Submission"];
 type LatestGameState = components["schemas"]["LatestGameState"];
 
 type Props = {
-	game: Game;
-	player: User;
-	initialGameState: LatestGameState;
+  game: Game;
+  player: User;
+  initialGameState: LatestGameState;
 };
 
 export default function GolfPlayApp({ game, player, initialGameState }: Props) {
-	useHydrateAtoms([
-		[setDurationSecondsAtom, game.duration_seconds],
-		[setGameStartedAtAtom, game.started_at ?? null],
-		[setLatestGameStateAtom, initialGameState],
-	]);
+  useHydrateAtoms([
+    [setDurationSecondsAtom, game.duration_seconds],
+    [setGameStartedAtAtom, game.started_at ?? null],
+    [setLatestGameStateAtom, initialGameState],
+  ]);
 
-	const apiClient = useContext(ApiClientContext)!;
+  const apiClient = useContext(ApiClientContext)!;
 
-	const gameStateKind = useAtomValue(gameStateKindAtom);
-	const setGameStartedAt = useSetAtom(setGameStartedAtAtom);
-	const setCurrentTimestamp = useSetAtom(setCurrentTimestampAtom);
-	const handleSubmitCodePre = useSetAtom(handleSubmitCodePreAtom);
-	const handleSubmitCodePost = useSetAtom(handleSubmitCodePostAtom);
-	const setLatestGameState = useSetAtom(setLatestGameStateAtom);
+  const gameStateKind = useAtomValue(gameStateKindAtom);
+  const setGameStartedAt = useSetAtom(setGameStartedAtAtom);
+  const setCurrentTimestamp = useSetAtom(setCurrentTimestampAtom);
+  const handleSubmitCodePre = useSetAtom(handleSubmitCodePreAtom);
+  const handleSubmitCodePost = useSetAtom(handleSubmitCodePostAtom);
+  const setLatestGameState = useSetAtom(setLatestGameStateAtom);
 
-	useTimer({ delay: 1000, startImmediately: true }, setCurrentTimestamp);
+  useTimer({ delay: 1000, startImmediately: true }, setCurrentTimestamp);
 
-	const playerProfile = {
-		id: player.user_id,
-		displayName: player.display_name,
-		iconPath: player.icon_path ?? null,
-	};
+  const playerProfile = {
+    id: player.user_id,
+    displayName: player.display_name,
+    iconPath: player.icon_path ?? null,
+  };
 
-	const onCodeChange = useDebouncedCallback(async (code: string) => {
-		if (game.game_type === "1v1") {
-			console.log("player:c2s:code");
-			await apiClient.postGamePlayCode(game.game_id, code);
-		}
-	}, 1000);
+  const onCodeChange = useDebouncedCallback(async (code: string) => {
+    if (game.game_type === "1v1") {
+      console.log("player:c2s:code");
+      await apiClient.postGamePlayCode(game.game_id, code);
+    }
+  }, 1000);
 
-	const onCodeSubmit = useDebouncedCallback(
-		async (code: string) => {
-			if (code === "") {
-				return;
-			}
-			console.log("player:c2s:submit");
-			handleSubmitCodePre();
-			await apiClient.postGamePlaySubmit(game.game_id, code);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-			handleSubmitCodePost();
-		},
-		1000,
-		{ leading: true },
-	);
+  const onCodeSubmit = useDebouncedCallback(
+    async (code: string) => {
+      if (code === "") {
+        return;
+      }
+      console.log("player:c2s:submit");
+      handleSubmitCodePre();
+      await apiClient.postGamePlaySubmit(game.game_id, code);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      handleSubmitCodePost();
+    },
+    1000,
+    { leading: true },
+  );
 
-	const [submissions, setSubmissions] = useState<Submission[]>([]);
-	const [isDataPolling, setIsDataPolling] = useState(false);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [isDataPolling, setIsDataPolling] = useState(false);
 
-	const fetchSubmissions = useCallback(async () => {
-		try {
-			const { submissions } = await apiClient.getGamePlaySubmissions(
-				game.game_id,
-			);
-			setSubmissions(submissions);
-		} catch (error) {
-			console.error(error);
-		}
-	}, [apiClient, game.game_id]);
+  const fetchSubmissions = useCallback(async () => {
+    try {
+      const { submissions } = await apiClient.getGamePlaySubmissions(
+        game.game_id,
+      );
+      setSubmissions(submissions);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [apiClient, game.game_id]);
 
-	useEffect(() => {
-		if (gameStateKind === "finished") {
-			fetchSubmissions();
-		}
-	}, [gameStateKind, fetchSubmissions]);
+  useEffect(() => {
+    if (gameStateKind === "finished") {
+      fetchSubmissions();
+    }
+  }, [gameStateKind, fetchSubmissions]);
 
-	useEffect(() => {
-		if (isDataPolling) {
-			return;
-		}
-		const timerId = setInterval(async () => {
-			if (isDataPolling) {
-				return;
-			}
-			setIsDataPolling(true);
+  useEffect(() => {
+    if (isDataPolling) {
+      return;
+    }
+    const timerId = setInterval(async () => {
+      if (isDataPolling) {
+        return;
+      }
+      setIsDataPolling(true);
 
-			try {
-				if (gameStateKind === "waiting") {
-					const { game: g } = await apiClient.getGame(game.game_id);
-					if (g.started_at != null) {
-						setGameStartedAt(g.started_at);
-					}
-				} else if (gameStateKind === "gaming") {
-					const { state } = await apiClient.getGamePlayLatestState(
-						game.game_id,
-					);
-					setLatestGameState(state);
-					await fetchSubmissions();
-				}
-			} catch (error) {
-				console.error(error);
-			} finally {
-				setIsDataPolling(false);
-			}
-		}, 1000);
+      try {
+        if (gameStateKind === "waiting") {
+          const { game: g } = await apiClient.getGame(game.game_id);
+          if (g.started_at != null) {
+            setGameStartedAt(g.started_at);
+          }
+        } else if (gameStateKind === "gaming") {
+          const { state } = await apiClient.getGamePlayLatestState(
+            game.game_id,
+          );
+          setLatestGameState(state);
+          await fetchSubmissions();
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsDataPolling(false);
+      }
+    }, 1000);
 
-		return () => {
-			clearInterval(timerId);
-		};
-	}, [
-		isDataPolling,
-		apiClient,
-		game.game_id,
-		gameStateKind,
-		setGameStartedAt,
-		setLatestGameState,
-		fetchSubmissions,
-	]);
+    return () => {
+      clearInterval(timerId);
+    };
+  }, [
+    isDataPolling,
+    apiClient,
+    game.game_id,
+    gameStateKind,
+    setGameStartedAt,
+    setLatestGameState,
+    fetchSubmissions,
+  ]);
 
-	if (gameStateKind === "loading") {
-		return <GolfPlayAppLoading />;
-	} else if (gameStateKind === "waiting") {
-		if (player.is_admin) {
-			return (
-				<GolfPlayAppGaming
-					gameDisplayName={game.display_name}
-					playerProfile={playerProfile}
-					problemTitle={game.problem.title}
-					problemDescription={game.problem.description}
-					problemLanguage={game.problem.language}
-					sampleCode={game.problem.sample_code}
-					initialCode={initialGameState.code}
-					onCodeChange={onCodeChange}
-					onCodeSubmit={onCodeSubmit}
-					isFinished={false}
-					submissions={submissions}
-				/>
-			);
-		}
-		return (
-			<GolfPlayAppWaiting
-				gameDisplayName={game.display_name}
-				playerProfile={playerProfile}
-			/>
-		);
-	} else if (gameStateKind === "starting") {
-		return <GolfPlayAppStarting gameDisplayName={game.display_name} />;
-	} else if (gameStateKind === "gaming" || gameStateKind === "finished") {
-		return (
-			<GolfPlayAppGaming
-				gameDisplayName={game.display_name}
-				playerProfile={playerProfile}
-				problemTitle={game.problem.title}
-				problemDescription={game.problem.description}
-				problemLanguage={game.problem.language}
-				sampleCode={game.problem.sample_code}
-				initialCode={initialGameState.code}
-				onCodeChange={onCodeChange}
-				onCodeSubmit={onCodeSubmit}
-				isFinished={gameStateKind === "finished"}
-				submissions={submissions}
-			/>
-		);
-	}
+  if (gameStateKind === "loading") {
+    return <GolfPlayAppLoading />;
+  } else if (gameStateKind === "waiting") {
+    if (player.is_admin) {
+      return (
+        <GolfPlayAppGaming
+          gameDisplayName={game.display_name}
+          playerProfile={playerProfile}
+          problemTitle={game.problem.title}
+          problemDescription={game.problem.description}
+          problemLanguage={game.problem.language}
+          sampleCode={game.problem.sample_code}
+          initialCode={initialGameState.code}
+          onCodeChange={onCodeChange}
+          onCodeSubmit={onCodeSubmit}
+          isFinished={false}
+          submissions={submissions}
+        />
+      );
+    }
+    return (
+      <GolfPlayAppWaiting
+        gameDisplayName={game.display_name}
+        playerProfile={playerProfile}
+      />
+    );
+  } else if (gameStateKind === "starting") {
+    return <GolfPlayAppStarting gameDisplayName={game.display_name} />;
+  } else if (gameStateKind === "gaming" || gameStateKind === "finished") {
+    return (
+      <GolfPlayAppGaming
+        gameDisplayName={game.display_name}
+        playerProfile={playerProfile}
+        problemTitle={game.problem.title}
+        problemDescription={game.problem.description}
+        problemLanguage={game.problem.language}
+        sampleCode={game.problem.sample_code}
+        initialCode={initialGameState.code}
+        onCodeChange={onCodeChange}
+        onCodeSubmit={onCodeSubmit}
+        isFinished={gameStateKind === "finished"}
+        submissions={submissions}
+      />
+    );
+  }
 }

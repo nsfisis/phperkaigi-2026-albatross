@@ -1,19 +1,19 @@
 .shiki {
-	white-space: pre-wrap;
+  white-space: pre-wrap;
 }
 
 /* https://github.com/shikijs/shiki/issues/3 */
 .shiki code {
-	counter-reset: line-number;
-	counter-increment: line-number 0;
+  counter-reset: line-number;
+  counter-increment: line-number 0;
 }
 
 .shiki code .line::before {
-	content: counter(line-number);
-	counter-increment: line-number;
-	width: 2rem;
-	margin-right: 1.5rem;
-	display: inline-block;
-	text-align: right;
-	color: #aaa;
+  content: counter(line-number);
+  counter-increment: line-number;
+  width: 2rem;
+  margin-right: 1.5rem;
+  display: inline-block;
+  text-align: right;
+  color: #aaa;
 }

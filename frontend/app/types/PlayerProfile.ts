@@ -1,5 +1,5 @@
 export type PlayerProfile = {
-	id: number;
-	displayName: string;
-	iconPath: string | null;
+  id: number;
+  displayName: string;
+  iconPath: string | null;
 };
