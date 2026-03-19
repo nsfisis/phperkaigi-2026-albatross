@@ -15,7 +15,7 @@ function getBorderColor(match: TournamentMatch, userID?: number): string {
     return "border-black";
   }
   if (userID !== undefined && match.winner_user_id === userID) {
-    return "border-pink-700";
+    return "border-brand-600";
   }
   return "border-gray-400";
 }
@@ -25,7 +25,7 @@ function getBgColor(match: TournamentMatch, userID?: number): string {
     return "bg-black";
   }
   if (userID !== undefined && match.winner_user_id === userID) {
-    return "bg-pink-700";
+    return "bg-brand-600";
   }
   return "bg-gray-400";
 }
@@ -34,7 +34,7 @@ function getWinnerBgColor(match: TournamentMatch | undefined): string {
   if (!match?.winner_user_id) {
     return "bg-black";
   }
-  return "bg-pink-700";
+  return "bg-brand-600";
 }
 
 function PlayerCard({ entry }: { entry: TournamentEntry | undefined }) {
@@ -68,11 +68,15 @@ function Connector({
   colSpan,
   match,
   isTopRound,
+  leftChildMatch,
+  rightChildMatch,
 }: {
   position: number;
   colSpan: number;
   match: TournamentMatch | undefined;
   isTopRound: boolean;
+  leftChildMatch?: TournamentMatch;
+  rightChildMatch?: TournamentMatch;
 }) {
   const leftHalf = colSpan / 2;
   const rightHalf = colSpan - leftHalf;
@@ -83,12 +87,17 @@ function Connector({
   const rightBorderColor = match
     ? getBorderColor(match, match.player2?.user_id)
     : "border-black";
-  const leftBgColor = match
-    ? getBgColor(match, match.player1?.user_id)
-    : "bg-black";
-  const rightBgColor = match
-    ? getBgColor(match, match.player2?.user_id)
-    : "bg-black";
+  // Leg colors: use child match winner color so vertical lines don't change color midway
+  const leftLegColor = leftChildMatch
+    ? getWinnerBgColor(leftChildMatch)
+    : match
+      ? getBgColor(match, match.player1?.user_id)
+      : "bg-black";
+  const rightLegColor = rightChildMatch
+    ? getWinnerBgColor(rightChildMatch)
+    : match
+      ? getBgColor(match, match.player2?.user_id)
+      : "bg-black";
   const winnerBg = getWinnerBgColor(match);
 
   return (
@@ -98,21 +107,19 @@ function Connector({
       }}
     >
       {/* Center stem going UP to parent round */}
-      {!isTopRound && (
-        <div className="flex justify-center h-4">
-          <div className={`w-0.5 ${winnerBg}`} />
-        </div>
-      )}
+      <div className={`flex justify-center ${isTopRound ? "h-24" : "h-12"}`}>
+        <div className={`w-0.5 ${winnerBg}`} />
+      </div>
 
       {/* Horizontal line */}
       <div className="flex justify-center">
-        <div className={`w-1/4 border-t-4 ${leftBorderColor}`} />
-        <div className={`w-1/4 border-t-4 ${rightBorderColor}`} />
+        <div className={`w-1/4 border-t-2 ${leftBorderColor}`} />
+        <div className={`w-1/4 border-t-2 ${rightBorderColor}`} />
       </div>
 
       {/* Two legs going DOWN to child elements */}
       <div
-        className="grid h-4"
+        className="grid h-12"
         style={{
           gridTemplateColumns: `repeat(${colSpan}, 1fr)`,
         }}
@@ -121,13 +128,13 @@ function Connector({
           className="flex justify-center"
           style={{ gridColumn: `1 / span ${leftHalf}` }}
         >
-          <div className={`w-0.5 ${leftBgColor}`} />
+          <div className={`w-0.5 ${leftLegColor}`} />
         </div>
         <div
           className="flex justify-center"
           style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
         >
-          <div className={`w-0.5 ${rightBgColor}`} />
+          <div className={`w-0.5 ${rightLegColor}`} />
         </div>
       </div>
     </div>
@@ -161,6 +168,10 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
     const connectors: React.ReactNode[] = [];
     for (let pos = 0; pos < numPositions; pos++) {
       const match = matchByKey.get(`${round}-${pos}`);
+      const leftChildMatch =
+        round > 0 ? matchByKey.get(`${round - 1}-${pos * 2}`) : undefined;
+      const rightChildMatch =
+        round > 0 ? matchByKey.get(`${round - 1}-${pos * 2 + 1}`) : undefined;
       connectors.push(
         <Connector
           key={`conn-${round}-${pos}`}
@@ -168,6 +179,8 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
           colSpan={colSpan}
           match={match}
           isTopRound={round === num_rounds - 1}
+          leftChildMatch={leftChildMatch}
+          rightChildMatch={rightChildMatch}
         />,
       );
     }
@@ -199,7 +212,7 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
     playerStems.push(
       <div
         key={`stem-${slot}`}
-        className="flex justify-center h-4"
+        className="flex justify-center h-12"
         style={{ gridColumn: `${slot + 1} / span 1` }}
       >
         <div className={`w-0.5 ${stemColor}`} />
