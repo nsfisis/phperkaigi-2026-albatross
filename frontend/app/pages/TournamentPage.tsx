@@ -20,6 +20,23 @@ function getBorderColor(match: TournamentMatch, userID?: number): string {
   return "border-gray-400";
 }
 
+function getBgColor(match: TournamentMatch, userID?: number): string {
+  if (!match.winner_user_id) {
+    return "bg-black";
+  }
+  if (userID !== undefined && match.winner_user_id === userID) {
+    return "bg-pink-700";
+  }
+  return "bg-gray-400";
+}
+
+function getWinnerBgColor(match: TournamentMatch | undefined): string {
+  if (!match?.winner_user_id) {
+    return "bg-black";
+  }
+  return "bg-pink-700";
+}
+
 function PlayerCard({ entry }: { entry: TournamentEntry | undefined }) {
   if (!entry) {
     return (
@@ -51,28 +68,44 @@ function Connector({
   position,
   colSpan,
   match,
+  isTopRound,
 }: {
   position: number;
   colSpan: number;
   match: TournamentMatch | undefined;
+  isTopRound: boolean;
 }) {
   const leftHalf = colSpan / 2;
   const rightHalf = colSpan - leftHalf;
 
-  const leftColor = match
+  const leftBorderColor = match
     ? getBorderColor(match, match.player1?.user_id)
     : "border-black";
-  const rightColor = match
+  const rightBorderColor = match
     ? getBorderColor(match, match.player2?.user_id)
     : "border-black";
+  const leftBgColor = match
+    ? getBgColor(match, match.player1?.user_id)
+    : "bg-black";
+  const rightBgColor = match
+    ? getBgColor(match, match.player2?.user_id)
+    : "bg-black";
+  const winnerBg = getWinnerBgColor(match);
 
   return (
     <div
-      className="grid h-8"
       style={{
         gridColumn: `${position * colSpan + 1} / span ${colSpan}`,
       }}
     >
+      {/* Center stem going UP to parent round */}
+      {!isTopRound && (
+        <div className="flex justify-center h-4">
+          <div className={`w-0.5 ${winnerBg}`} />
+        </div>
+      )}
+
+      {/* Horizontal line */}
       <div
         className="grid"
         style={{
@@ -80,13 +113,34 @@ function Connector({
         }}
       >
         <div
-          className={`border-t-4 border-r-2 ${leftColor}`}
+          className={`border-t-4 ${leftBorderColor}`}
           style={{ gridColumn: `1 / span ${leftHalf}` }}
         />
         <div
-          className={`border-t-4 border-l-2 ${rightColor}`}
+          className={`border-t-4 ${rightBorderColor}`}
           style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
         />
+      </div>
+
+      {/* Two legs going DOWN to child elements */}
+      <div
+        className="grid h-4"
+        style={{
+          gridTemplateColumns: `repeat(${colSpan}, 1fr)`,
+        }}
+      >
+        <div
+          className="flex justify-center"
+          style={{ gridColumn: `1 / span ${leftHalf}` }}
+        >
+          <div className={`w-0.5 ${leftBgColor}`} />
+        </div>
+        <div
+          className="flex justify-center"
+          style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
+        >
+          <div className={`w-0.5 ${rightBgColor}`} />
+        </div>
       </div>
     </div>
   );
@@ -125,6 +179,7 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
           position={pos}
           colSpan={colSpan}
           match={match}
+          isTopRound={round === num_rounds - 1}
         />,
       );
     }
@@ -140,6 +195,38 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
       </div>,
     );
   }
+
+  // Player stems row (vertical lines from round-0 connectors to player cards)
+  const playerStems: React.ReactNode[] = [];
+  for (let slot = 0; slot < bracket_size; slot++) {
+    const matchPos = Math.floor(slot / 2);
+    const match = matchByKey.get(`0-${matchPos}`);
+    const isPlayer1 = slot % 2 === 0;
+    const stemColor = match
+      ? getBgColor(
+          match,
+          isPlayer1 ? match.player1?.user_id : match.player2?.user_id,
+        )
+      : "bg-black";
+    playerStems.push(
+      <div
+        key={`stem-${slot}`}
+        className="flex justify-center h-4"
+        style={{ gridColumn: `${slot + 1} / span 1` }}
+      >
+        <div className={`w-0.5 ${stemColor}`} />
+      </div>,
+    );
+  }
+  rows.push(
+    <div
+      key="player-stems"
+      className="grid"
+      style={{ gridTemplateColumns: `repeat(${bracket_size}, 1fr)` }}
+    >
+      {playerStems}
+    </div>,
+  );
 
   // Player cards row (bottom)
   const playerCards: React.ReactNode[] = [];
