@@ -114,11 +114,15 @@ function Connector({
       >
         <div
           className={`border-t-4 ${leftBorderColor}`}
-          style={{ gridColumn: `1 / span ${leftHalf}` }}
+          style={{
+            gridColumn: `${Math.floor(leftHalf / 2) + 1} / span ${Math.ceil(leftHalf / 2)}`,
+          }}
         />
         <div
           className={`border-t-4 ${rightBorderColor}`}
-          style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
+          style={{
+            gridColumn: `${leftHalf + 1} / span ${Math.ceil(rightHalf / 2)}`,
+          }}
         />
       </div>
 
