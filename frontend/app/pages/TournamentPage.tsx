@@ -47,48 +47,6 @@ function PlayerCard({ entry }: { entry: TournamentEntry | undefined }) {
   );
 }
 
-function MatchCell({ match }: { match: TournamentMatch }) {
-  if (match.is_bye) {
-    return (
-      <div className="flex items-center justify-center h-full opacity-30">
-        <span className="text-gray-400 text-xs">BYE</span>
-      </div>
-    );
-  }
-
-  const p1Color = match.winner_user_id
-    ? match.winner_user_id === match.player1?.user_id
-      ? "border-pink-700"
-      : "border-gray-400"
-    : "border-black";
-  const p2Color = match.winner_user_id
-    ? match.winner_user_id === match.player2?.user_id
-      ? "border-pink-700"
-      : "border-gray-400"
-    : "border-black";
-
-  return (
-    <div className="flex flex-col gap-1 p-1">
-      <div
-        className={`border-2 ${p1Color} rounded px-2 py-1 text-xs flex justify-between`}
-      >
-        <span className="truncate">{match.player1?.display_name ?? "?"}</span>
-        {match.player1_score !== undefined && (
-          <span className="font-bold ml-1">{match.player1_score}</span>
-        )}
-      </div>
-      <div
-        className={`border-2 ${p2Color} rounded px-2 py-1 text-xs flex justify-between`}
-      >
-        <span className="truncate">{match.player2?.display_name ?? "?"}</span>
-        {match.player2_score !== undefined && (
-          <span className="font-bold ml-1">{match.player2_score}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Connector({
   position,
   colSpan,
@@ -157,34 +115,7 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
     const numPositions = bracket_size / (1 << (round + 1));
     const colSpan = bracket_size / numPositions;
 
-    // Match cells for this round
-    const matchCells: React.ReactNode[] = [];
-    for (let pos = 0; pos < numPositions; pos++) {
-      const match = matchByKey.get(`${round}-${pos}`);
-      matchCells.push(
-        <div
-          key={`match-${round}-${pos}`}
-          style={{
-            gridColumn: `${pos * colSpan + 1} / span ${colSpan}`,
-          }}
-        >
-          {match ? <MatchCell match={match} /> : null}
-        </div>,
-      );
-    }
-    rows.push(
-      <div
-        key={`round-${round}`}
-        className="grid"
-        style={{
-          gridTemplateColumns: `repeat(${bracket_size}, 1fr)`,
-        }}
-      >
-        {matchCells}
-      </div>,
-    );
-
-    // Connectors below this round's matches
+    // Connectors for this round
     const connectors: React.ReactNode[] = [];
     for (let pos = 0; pos < numPositions; pos++) {
       const match = matchByKey.get(`${round}-${pos}`);
