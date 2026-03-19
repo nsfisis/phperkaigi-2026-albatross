@@ -48,7 +48,6 @@ function PlayerCard({ entry }: { entry: TournamentEntry | undefined }) {
   return (
     <BorderedContainer>
       <div className="flex flex-col items-center gap-1">
-        <span className="text-gray-600 text-xs">Seed {entry.seed}</span>
         <span className="font-medium text-sm truncate max-w-full">
           {entry.user.display_name}
         </span>
@@ -106,24 +105,9 @@ function Connector({
       )}
 
       {/* Horizontal line */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: `repeat(${colSpan}, 1fr)`,
-        }}
-      >
-        <div
-          className={`border-t-4 ${leftBorderColor}`}
-          style={{
-            gridColumn: `${Math.floor(leftHalf / 2) + 1} / span ${Math.ceil(leftHalf / 2)}`,
-          }}
-        />
-        <div
-          className={`border-t-4 ${rightBorderColor}`}
-          style={{
-            gridColumn: `${leftHalf + 1} / span ${Math.ceil(rightHalf / 2)}`,
-          }}
-        />
+      <div className="flex justify-center">
+        <div className={`w-1/4 border-t-4 ${leftBorderColor}`} />
+        <div className={`w-1/4 border-t-4 ${rightBorderColor}`} />
       </div>
 
       {/* Two legs going DOWN to child elements */}
