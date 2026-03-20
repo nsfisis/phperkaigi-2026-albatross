@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"testing"
 )
 
@@ -125,10 +126,24 @@ func TestNewConfigFromEnv_MissingRequired(t *testing.T) {
 		},
 	}
 
+	allKeys := []string{
+		"ALBATROSS_DB_HOST",
+		"ALBATROSS_DB_PORT",
+		"ALBATROSS_DB_USER",
+		"ALBATROSS_DB_PASSWORD",
+		"ALBATROSS_DB_NAME",
+		"ALBATROSS_BASE_PATH",
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for k, v := range tt.envVars {
-				t.Setenv(k, v)
+			for _, k := range allKeys {
+				if v, ok := tt.envVars[k]; ok {
+					t.Setenv(k, v)
+				} else {
+					t.Setenv(k, "")
+					os.Unsetenv(k)
+				}
 			}
 			_, err := NewConfigFromEnv()
 			if err == nil {

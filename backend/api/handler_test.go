@@ -672,7 +672,15 @@ func TestGetGameWatchRanking_EmptyRanking(t *testing.T) {
 }
 
 func TestGetGameWatchLatestStates_Empty(t *testing.T) {
-	h := newTestHandler(&mockQuerier{})
+	h := newTestHandler(&mockQuerier{
+		getGameByIDFunc: func(_ context.Context, _ int32) (db.GetGameByIDRow, error) {
+			return db.GetGameByIDRow{
+				GameID:          1,
+				DurationSeconds: 300,
+				StartedAt:       pgtype.Timestamp{Time: time.Now().Add(-10 * time.Minute), Valid: true},
+			}, nil
+		},
+	})
 	user := &db.User{UserID: 1}
 	resp, err := h.GetGameWatchLatestStates(context.Background(), GetGameWatchLatestStatesRequestObject{GameID: 1}, user)
 	if err != nil {

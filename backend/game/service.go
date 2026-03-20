@@ -293,6 +293,15 @@ func (s *Service) GetLatestState(ctx context.Context, gameID int, userID int32) 
 }
 
 func (s *Service) GetWatchLatestStates(ctx context.Context, gameID int, userID *int32, isAdmin bool) (map[int]LatestState, error) {
+	gameRow, err := s.q.GetGameByID(ctx, int32(gameID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	finished := IsGameFinished(gameRow.StartedAt, gameRow.DurationSeconds)
+
 	rows, err := s.q.GetLatestStatesOfMainPlayers(ctx, int32(gameID))
 	if err != nil {
 		return nil, err
@@ -320,7 +329,7 @@ func (s *Service) GetWatchLatestStates(ctx context.Context, gameID int, userID *
 			submittedAt = &ts
 		}
 
-		if userID != nil && row.UserID == *userID && !isAdmin {
+		if userID != nil && row.UserID == *userID && !isAdmin && !finished {
 			return nil, ErrForbidden
 		}
 
