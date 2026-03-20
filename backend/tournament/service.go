@@ -228,12 +228,12 @@ func (s *Service) GetTournament(ctx context.Context, tournamentID int) (Bracket,
 				}
 			}
 
-			// Check for bye
-			if mr.player1 == nil && mr.player2 != nil {
+			// Check for bye (only in round 0; in later rounds, nil player means opponent TBD)
+			if round == 0 && mr.player1 == nil && mr.player2 != nil {
 				mr.isBye = true
 				uid := mr.player2.UserID
 				mr.winnerUID = &uid
-			} else if mr.player1 != nil && mr.player2 == nil {
+			} else if round == 0 && mr.player1 != nil && mr.player2 == nil {
 				mr.isBye = true
 				uid := mr.player1.UserID
 				mr.winnerUID = &uid
