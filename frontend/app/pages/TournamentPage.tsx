@@ -108,13 +108,13 @@ function Connector({
     >
       {/* Center stem going UP to parent round */}
       <div className={`flex justify-center ${isTopRound ? "h-24" : "h-12"}`}>
-        <div className={`w-0.5 ${winnerBg}`} />
+        <div className={`w-1 ${winnerBg}`} />
       </div>
 
       {/* Horizontal line */}
       <div className="flex justify-center">
-        <div className={`w-1/4 border-t-2 ${leftBorderColor}`} />
-        <div className={`w-1/4 border-t-2 ${rightBorderColor}`} />
+        <div className={`w-1/4 border-t-4 ${leftBorderColor}`} />
+        <div className={`w-1/4 border-t-4 ${rightBorderColor}`} />
       </div>
 
       {/* Two legs going DOWN to child elements */}
@@ -128,13 +128,13 @@ function Connector({
           className="flex justify-center"
           style={{ gridColumn: `1 / span ${leftHalf}` }}
         >
-          <div className={`w-0.5 ${leftLegColor}`} />
+          <div className={`w-1 ${leftLegColor}`} />
         </div>
         <div
           className="flex justify-center"
           style={{ gridColumn: `${leftHalf + 1} / span ${rightHalf}` }}
         >
-          <div className={`w-0.5 ${rightLegColor}`} />
+          <div className={`w-1 ${rightLegColor}`} />
         </div>
       </div>
     </div>
@@ -215,7 +215,7 @@ function TournamentBracket({ tournament }: { tournament: Tournament }) {
         className="flex justify-center h-12"
         style={{ gridColumn: `${slot + 1} / span 1` }}
       >
-        <div className={`w-0.5 ${stemColor}`} />
+        <div className={`w-1 ${stemColor}`} />
       </div>,
     );
   }
