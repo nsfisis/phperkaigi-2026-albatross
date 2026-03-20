@@ -262,7 +262,8 @@ WHERE testcase_id = $1;
 -- name: GetSubmissionsByGameIDAndUserID :many
 SELECT * FROM submissions
 WHERE game_id = $1 AND user_id = $2
-ORDER BY created_at DESC;
+ORDER BY created_at DESC
+LIMIT 50;
 
 -- name: GetSubmissionsByGameID :many
 SELECT *

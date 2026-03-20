@@ -709,6 +709,7 @@ const getSubmissionsByGameIDAndUserID = `-- name: GetSubmissionsByGameIDAndUserI
 SELECT submission_id, game_id, user_id, code, code_size, status, created_at FROM submissions
 WHERE game_id = $1 AND user_id = $2
 ORDER BY created_at DESC
+LIMIT 50
 `
 
 type GetSubmissionsByGameIDAndUserIDParams struct {
