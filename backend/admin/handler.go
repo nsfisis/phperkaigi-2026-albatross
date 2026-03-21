@@ -87,6 +87,9 @@ func (h *Handler) RegisterHandlers(g *echo.Group) {
 	g.POST("/problems/:problemID/testcases/:testcaseID", h.postTestcaseEdit)
 	g.POST("/problems/:problemID/testcases/:testcaseID/delete", h.postTestcaseDelete)
 
+	g.GET("/restart", h.getRestart)
+	g.POST("/restart", h.postRestart)
+
 	g.GET("/tournaments", h.getTournaments)
 	g.GET("/tournaments/new", h.getTournamentNew)
 	g.POST("/tournaments/new", h.postTournamentNew)
@@ -1181,4 +1184,55 @@ func (h *Handler) postTournamentEdit(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/tournaments")
+}
+
+func (h *Handler) getRestart(c echo.Context) error {
+	return c.Render(http.StatusOK, "restart", echo.Map{
+		"BasePath": h.conf.BasePath,
+		"Title":    "Restart All Games",
+	})
+}
+
+func (h *Handler) postRestart(c echo.Context) error {
+	endAtRaw := c.FormValue("end_at")
+	endAt, err := time.ParseInLocation("2006-01-02T15:04", endAtRaw, jst)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid end_at")
+	}
+	endAtUTC := endAt.UTC()
+
+	startedAt := time.Now().Add(10 * time.Second)
+	durationSeconds := int(endAtUTC.Sub(startedAt).Seconds())
+	if durationSeconds <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "end_at must be in the future")
+	}
+
+	ctx := c.Request().Context()
+
+	games, err := h.q.ListAllGames(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	for _, g := range games {
+		err := h.gameSvc.UpdateGameWithPlayers(ctx, game.UpdateGameParams{
+			GameID:          int(g.GameID),
+			GameType:        "multiplayer",
+			IsPublic:        g.IsPublic,
+			DisplayName:     g.DisplayName,
+			DurationSeconds: durationSeconds,
+			StartedAt: pgtype.Timestamp{
+				Time:  startedAt,
+				Valid: true,
+			},
+			ProblemID:     int(g.ProblemID),
+			MainPlayerIDs: []int{},
+		})
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to restart game", "game_id", g.GameID, "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to restart game %d: %s", g.GameID, err.Error()))
+		}
+	}
+
+	return c.Redirect(http.StatusSeeOther, h.conf.BasePath+"admin/games")
 }

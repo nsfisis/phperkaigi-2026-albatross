@@ -1,0 +1,19 @@
+{{ template "base.html" . }}
+
+{{ define "breadcrumb" }}
+<a href="{{ .BasePath }}admin/dashboard">Dashboard</a>
+{{ end }}
+
+{{ define "content" }}
+<h2>Restart All Games</h2>
+<p>全ゲームの main player を削除し、multiplayer に変更して一括リスタートします。</p>
+<form method="post">
+  <div>
+    <label>終了日時 (JST)</label>
+    <input type="datetime-local" name="end_at" required>
+  </div>
+  <div>
+    <button type="submit">Restart All Games</button>
+  </div>
+</form>
+{{ end }}
