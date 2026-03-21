@@ -34,6 +34,14 @@ function PhpNotice() {
           <InlineCode code="E_ALL &amp; ~E_WARNING &amp; ~E_NOTICE &amp; ~E_DEPRECATED" />{" "}
           に設定されています。
         </p>
+        <p>
+          2026-03-21 追記:
+          <InlineCode code="eval()" /> は (多分) 使えなくなりました。
+          この判定には偽陽性があり、
+          <InlineCode code="eval()" /> のないコードも{" "}
+          <InlineCode code="eval()" /> ありと判定される場合がありますが、
+          意図的に狙わない限り誤判定することはないと思います。
+        </p>
       </div>
     </FoldableBorderedContainerWithCaption>
   );

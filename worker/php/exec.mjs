@@ -1,7 +1,22 @@
-import { buildResult, createIOCallbacks, preprocessCode } from "./lib.mjs";
+import {
+  buildResult,
+  createIOCallbacks,
+  preprocessCode,
+  validateCode,
+} from "./lib.mjs";
 import PHPWasm from "./php-wasm.js";
 
 process.once("message", async ({ code: originalCode, input }) => {
+  const validationError = validateCode(originalCode);
+  if (validationError) {
+    process.send({
+      status: "runtime_error",
+      stdout: "",
+      stderr: validationError,
+    });
+    return;
+  }
+
   const code = preprocessCode(originalCode);
   const io = createIOCallbacks(input);
 

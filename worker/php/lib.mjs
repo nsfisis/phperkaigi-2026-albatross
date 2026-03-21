@@ -9,6 +9,17 @@ const PRELUDE = `
 
 const BUFFER_MAX = 10 * 1024;
 
+const FORBIDDEN_CONSTRUCTS = [/\beval\b/i];
+
+export function validateCode(code) {
+  for (const pattern of FORBIDDEN_CONSTRUCTS) {
+    if (pattern.test(code)) {
+      return `Forbidden: eval() is not allowed`;
+    }
+  }
+  return null;
+}
+
 export function preprocessCode(originalCode) {
   if (originalCode.startsWith("<?php")) {
     return PRELUDE + originalCode.slice(5);
